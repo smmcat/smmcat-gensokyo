@@ -1,0 +1,181 @@
+{
+    "地下墓穴": {
+        "floor": 1,
+        "areaName": "地下墓穴",
+        "type": "BOSS区",
+        "needLv": 1,
+        "down": "蜘蛛洞穴"
+    },
+    "蜘蛛洞穴": {
+        "floor": 1,
+        "areaName": "蜘蛛洞穴",
+        "type": "冒险区",
+        "needLv": 1,
+        "down": "蜘蛛森林一"
+    },
+    "蜘蛛森林一": {
+        "floor": 1,
+        "areaName": "蜘蛛森林一",
+        "type": "冒险区",
+        "needLv": 1,
+        "monster": [
+            {
+                "name": "小蜘蛛",
+                "lv": 2
+            }
+        ],
+        "top": "蜘蛛洞穴",
+        "left": "蜘蛛森林二",
+        "right": "蜘蛛森林三",
+        "down": "蜘蛛森林通道"
+    },
+    "蜘蛛森林二": {
+        "floor": 1,
+        "areaName": "蜘蛛森林二",
+        "type": "冒险区",
+        "needLv": 1,
+        "right": "蜘蛛森林一"
+    },
+    "蜘蛛森林三": {
+        "floor": 1,
+        "areaName": "蜘蛛森林三",
+        "type": "冒险区",
+        "needLv": 1,
+        "left": "蜘蛛森林一"
+    },
+    "蜘蛛森林通道": {
+        "floor": 1,
+        "areaName": "蜘蛛森林通道",
+        "type": "冒险区",
+        "needLv": 1,
+        "top": "蜘蛛森林一",
+        "down": "中央广场"
+    },
+    "中央广场": {
+        "floor": 1,
+        "areaName": "中央广场",
+        "info": "一层的中心位置，梦开始的地方",
+        "npc": [
+            "aipo"
+        ],
+        "type": "安全区",
+        "needLv": 1,
+        "top": "蜘蛛森林通道",
+        "down": "新手村",
+        "left": "酒馆",
+        "right": "银行"
+    },
+    "酒馆": {
+        "floor": 1,
+        "areaName": "酒馆",
+        "type": "安全区",
+        "needLv": 1,
+        "down": "传送门",
+        "right": "中央广场"
+    },
+    "银行": {
+        "floor": 1,
+        "areaName": "银行",
+        "type": "安全区",
+        "needLv": 1,
+        "down": "1层-商店",
+        "left": "中央广场"
+    },
+    "1层-商店": {
+        "floor": 1,
+        "areaName": "1层-商店",
+        "type": "安全区",
+        "needLv": 1,
+        "right": "农田",
+        "left": "新手村"
+    },
+    "传送门": {
+        "floor": 1,
+        "areaName": "传送门",
+        "type": "传送门",
+        "needLv": 1,
+        "top": "酒馆",
+        "right": "新手村",
+        "left": "爱之湖"
+    },
+    "爱之湖": {
+        "floor": 1,
+        "areaName": "传送门",
+        "type": "安全区",
+        "needLv": 1,
+        "right": "传送门"
+    },
+    "新手村": {
+        "floor": 1,
+        "areaName": "新手村",
+        "type": "安全区",
+        "needLv": 1,
+        "top": "中央广场",
+        "down": "绿野平原通道",
+        "left": "传送门",
+        "right": "1层-商店"
+    },
+    "绿野平原通道": {
+        "floor": 1,
+        "areaName": "绿野平原通道",
+        "type": "安全区",
+        "needLv": 1,
+        "top": "新手村",
+        "down": "绿野平原一"
+    },
+    "绿野平原一": {
+        "floor": 1,
+        "areaName": "绿野平原一",
+        "type": "冒险区",
+        "monster": [
+            {
+                "name": "小蜜蜂",
+                "lv": 1
+            }
+        ],
+        "needLv": 1,
+        "top": "绿野平原通道",
+        "left": "绿野平原二",
+        "right": "绿野平原三",
+        "down": "绿野平原四"
+    },
+    "绿野平原二": {
+        "floor": 1,
+        "areaName": "绿野平原二",
+        "type": "冒险区",
+        "needLv": 1,
+        "right": "绿野平原一",
+        "down": "绿野平原五"
+    },
+    "绿野平原三": {
+        "floor": 1,
+        "areaName": "绿野平原三",
+        "type": "冒险区",
+        "needLv": 1,
+        "left": "绿野平原一",
+        "down": "绿野平原六"
+    },
+    "绿野平原四": {
+        "floor": 1,
+        "areaName": "绿野平原四",
+        "type": "冒险区",
+        "needLv": 1,
+        "top": "绿野平原一",
+        "down": "野猪巢穴"
+    },
+    "绿野平原六": {
+        "floor": 1,
+        "areaName": "绿野平原六",
+        "type": "冒险区",
+        "needLv": 1,
+        "left": "绿野平原四",
+        "top": "绿野平原三"
+    },
+    "野猪巢穴": {
+        "floor": 1,
+        "areaName": "野猪巢穴",
+        "type": "冒险区",
+        "needLv": 1,
+        "top": "绿野平原四"
+    }
+}

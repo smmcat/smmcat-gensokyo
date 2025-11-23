@@ -1,11 +1,227 @@
 import { Context, Schema } from 'koishi'
-
+import type { } from 'koishi-plugin-monetary'
+import { AreaType, GensokyoMap, MoveType } from './map';
+import { User } from './users';
+import { Monster } from './monster';
+import { BattleData } from './battle';
+import { random } from './utlis';
 export const name = 'smmcat-gensokyo'
 
-export interface Config {}
+export const inject = {
+  required: ['monetary', 'database']
+};
+
+export interface Config { }
 
 export const Config: Schema<Config> = Schema.object({})
 
-export function apply(ctx: Context) {
-  // write your plugin here
+export function apply(ctx: Context, config: Config) {
+
+  ctx.on('ready', () => {
+    GensokyoMap.init(config, ctx)
+    User.init(config, ctx)
+    Monster.init(config, ctx)
+  })
+
+  ctx
+    .command('幻想乡')
+  ctx
+    .command('幻想乡/移动.上')
+    .action(async ({ session }) => {
+      console.log(session.userId.slice(0, 6) + '触发了上移动');
+      const userData = await User.getUserAttribute(session)
+      if (!userData) return
+
+      GensokyoMap.initUserPoistion(session, userData)
+      if (BattleData.isBattle(session)) {
+        await session.send('您正在战斗中，无法移动！')
+        return
+      }
+      GensokyoMap.move(session, MoveType.上, async (val) => {
+        await session.send(GensokyoMap.userAreaTextFormat(userData.playName, val))
+        // 概率遇到怪物
+        if (val.map.type == AreaType.冒险区 && val.map.monster?.length) {
+          if (random(0, 10) <= 2) {
+            const selectMonster = val.map.monster[random(0, val.map.monster.length)]
+            await session.send(`糟糕！你被 Lv.${selectMonster.lv} ${selectMonster.name} 发现，强制开启战斗！`)
+            await BattleData.createBattleByMonster(session, [selectMonster])
+          }
+        }
+      })
+    })
+  ctx
+    .command('幻想乡/移动.下')
+    .action(async ({ session }) => {
+      console.log(session.userId.slice(0, 6) + '触发了下移动');
+      const userData = await User.getUserAttribute(session)
+      if (!userData) return
+
+      GensokyoMap.initUserPoistion(session, userData)
+      if (BattleData.isBattle(session)) {
+        await session.send('您正在战斗中，无法移动！')
+        return
+      }
+      GensokyoMap.move(session, MoveType.下, async (val) => {
+        await session.send(GensokyoMap.userAreaTextFormat(userData.playName, val))
+        // 概率遇到怪物
+        if (val.map.type == AreaType.冒险区 && val.map.monster?.length) {
+          if (random(0, 10) <= 2) {
+            const selectMonster = val.map.monster[random(0, val.map.monster.length)]
+            await session.send(`糟糕！你被 Lv.${selectMonster.lv} ${selectMonster.name} 发现，强制发生战斗！`)
+            await BattleData.createBattleByMonster(session, [selectMonster])
+          }
+        }
+      })
+    })
+  ctx
+    .command('幻想乡/移动.左')
+    .action(async ({ session }) => {
+      console.log(session.userId.slice(0, 6) + '触发了左移动');
+      const userData = await User.getUserAttribute(session)
+      if (!userData) return
+
+      GensokyoMap.initUserPoistion(session, userData)
+      if (BattleData.isBattle(session)) {
+        await session.send('您正在战斗中，无法移动！')
+        return
+      }
+      GensokyoMap.move(session, MoveType.左, async (val) => {
+        await session.send(GensokyoMap.userAreaTextFormat(userData.playName, val))
+        // 概率遇到怪物
+        if (val.map.type == AreaType.冒险区 && val.map.monster?.length) {
+          if (random(0, 10) <= 2) {
+            const selectMonster = val.map.monster[random(0, val.map.monster.length)]
+            await session.send(`糟糕！你被 Lv.${selectMonster.lv} ${selectMonster.name} 发现，强制发生战斗！`)
+            await BattleData.createBattleByMonster(session, [selectMonster])
+          }
+        }
+      })
+    })
+  ctx
+    .command('幻想乡/移动.右')
+    .action(async ({ session }) => {
+      console.log(session.userId.slice(0, 6) + '触发了右移动');
+      const userData = await User.getUserAttribute(session)
+      if (!userData) return
+
+      GensokyoMap.initUserPoistion(session, userData)
+      if (BattleData.isBattle(session)) {
+        await session.send('您正在战斗中，无法移动！')
+        return
+      }
+      GensokyoMap.move(session, MoveType.右, async (val) => {
+        await session.send(GensokyoMap.userAreaTextFormat(userData.playName, val))
+        // 概率遇到怪物
+        if (val.map.type == AreaType.冒险区 && val.map.monster?.length) {
+          if (random(0, 10) <= 2) {
+            const selectMonster = val.map.monster[random(0, val.map.monster.length)]
+            await session.send(`糟糕！你被 Lv.${selectMonster.lv} ${selectMonster.name} 发现，强制发生战斗！`)
+            await BattleData.createBattleByMonster(session, [selectMonster])
+          }
+        }
+      })
+    })
+  ctx
+    .command('幻想乡/位置')
+    .action(async ({ session }) => {
+      const userData = await User.getUserAttribute(session)
+      if (!userData) return
+
+      GensokyoMap.initUserPoistion(session, userData)
+      const query = {
+        user: GensokyoMap.userCurrentLoal[session.userId],
+        map: GensokyoMap.getUserCurrentArea(session.userId)
+      }
+      if (!query.map) {
+        return `无效区域`
+      }
+      await session.send(GensokyoMap.userAreaTextFormat(userData.playName, query))
+    })
+
+  ctx
+    .command('幻想乡/个人属性')
+    .action(async ({ session }) => {
+      return `您的属性如下：\n` + User.userAttributeTextFormat(session.userId)
+    })
+
+  ctx
+    .command('幻想乡/开始注册')
+    .action(async ({ session }) => {
+      await User.createPlayUser(session)
+    })
+
+  ctx
+    .command('幻想乡/查询怪物 <monster> <lv:posint>')
+    .action(async ({ session }, monster, lv) => {
+      if (!monster) return `请输入要查询的怪物！`
+      if (!lv) lv = 1
+      const result = Monster.getMonsterAttributeData(monster, lv)
+      if (!result) return `没有找到该怪物信息...`
+      return `查找成功！\n` + Monster.monsterAttributeTextFormat(result)
+    })
+
+  ctx
+    .command('幻想乡/打怪遇敌 <goal>')
+    .action(async ({ session }, goal) => {
+      const userData = await User.getUserAttribute(session)
+      if (!userData) return
+
+      GensokyoMap.initUserPoistion(session, userData)
+      const areaInfo = GensokyoMap.getUserCurrentArea(session.userId)
+      if (goal) {
+        if (!areaInfo.monster.map(i => i.name).includes(goal)) {
+          return `没有在该区域找到该怪物。`
+        }
+        const selectMonster = areaInfo.monster.find(i => i.name == goal)
+        await BattleData.createBattleByMonster(session, [selectMonster])
+      } else {
+        const selectMonster = areaInfo.monster
+        await BattleData.createBattleByMonster(session, selectMonster)
+      }
+    })
+
+  ctx
+    .command('幻想乡/打怪攻击 <goal>')
+    .action(async ({ session }, goal) => {
+      const userData = await User.getUserAttribute(session)
+      if (!userData) return
+      BattleData.play(session, '普攻', goal)
+    })
+
+  ctx
+    .command('打怪pk <goal>')
+    .action(async ({ session }, goal) => {
+      // 先看看自己属性
+      const userData = await User.getUserAttribute(session)
+      if (!userData) return
+      // 万一玩家自己都不知道自己在哪
+      GensokyoMap.initUserPoistion(session, userData)
+
+      // 难道打自己？
+      if (!goal) {
+        await session.send('请选择PK目标！')
+        return
+      }
+      // 喂喂喂，大笨蛋你在吗？
+      const nearUserItem = GensokyoMap.nearbyPlayersByUserId(session.userId)
+      const exist = nearUserItem.find((item) => item.playName == goal.trim())
+
+      if (!exist) {
+        // 不在啊，告诉用户吧...
+        await session.send(`PK失败，当前区域未存在【${goal}】玩家`)
+        return
+      }
+      // 打之前应该先问问对方是否有队伍？
+      if (BattleData.isTeamByUserId(exist.userId)) {
+        // 我打一群？真的假的
+        const teamItem = BattleData.teamListByUser(exist.userId)
+        await session.send(`对方有组队，您将扮演攻击方与对方队伍进行战斗。`)
+        await BattleData.createBattleByUser(session, teamItem.map((item) => ({ userId: item.userId })))
+      }
+      // 来场男子汉的战斗吧
+      else {
+        await session.send(`您将扮演攻击方与对方进行战斗。`)
+        await BattleData.createBattleByUser(session, [{ userId: exist.userId }])
+      }
+    })
 }
