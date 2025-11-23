@@ -5,6 +5,7 @@ import { User } from './users';
 import { Monster } from './monster';
 import { BattleData } from './battle';
 import { random } from './utlis';
+import { skillFn } from './skillFn';
 export const name = 'smmcat-gensokyo'
 
 export const inject = {
@@ -169,7 +170,7 @@ export function apply(ctx: Context, config: Config) {
       GensokyoMap.initUserPoistion(session, userData)
       const areaInfo = GensokyoMap.getUserCurrentArea(session.userId)
       if (goal) {
-        if (!areaInfo.monster.map(i => i.name).includes(goal)) {
+        if (!areaInfo.monster?.map(i => i.name).includes(goal)) {
           return `没有在该区域找到该怪物。`
         }
         const selectMonster = areaInfo.monster.find(i => i.name == goal)
@@ -186,6 +187,14 @@ export function apply(ctx: Context, config: Config) {
       const userData = await User.getUserAttribute(session)
       if (!userData) return
       BattleData.play(session, '普攻', goal)
+    })
+
+  ctx
+    .command('幻想乡/打怪技能 <skill> <goal>')
+    .action(async ({ session }, skill, goal) => {
+      const userData = await User.getUserAttribute(session)
+      if (!userData) return
+      BattleData.play(session, skill, goal)
     })
 
   ctx
@@ -223,5 +232,13 @@ export function apply(ctx: Context, config: Config) {
         await session.send(`您将扮演攻击方与对方进行战斗。`)
         await BattleData.createBattleByUser(session, [{ userId: exist.userId }])
       }
+    })
+
+  ctx
+    .command('技能查询 <goal>')
+    .action(async ({ session }, goal) => {
+      if (!goal) return `请输入技能名，例如 /技能查询 重砍`
+      if (!skillFn[goal]) return `没有存在 ${goal} 技能！`
+      return `[${goal}]信息如下：\n` + skillFn[goal].info
     })
 }

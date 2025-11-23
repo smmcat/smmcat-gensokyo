@@ -2,8 +2,9 @@ import { Context, Session } from "koishi";
 import { Config } from ".";
 import { User, UserBaseAttribute } from "./users";
 import { Monster, MonsterBaseAttribute } from "./monster";
-import { Damage, giveDamage } from "./damage";
+import { Damage, giveDamage, moreDamageInfo } from "./damage";
 import { generateHealthDisplay } from "./utlis";
+import { skillFn, SkillType, UseAtkType } from "./skillFn";
 
 declare module 'koishi' {
     interface Tables {
@@ -86,7 +87,9 @@ export type BattleAttribute = {
         speed: number
     },
     /** 滞留状态 */
-    buff: { name: string, time: number }[]
+    buff: { name: string, time: number }[],
+    /** 持有技能 */
+    fn?: []
 }
 
 /** 最后战斗状态 */
@@ -127,8 +130,13 @@ export const BattleData = {
     teamListByUser(userId: string) {
         const teamList = [] as UserBaseAttribute[]
         // 寻找队伍人员
+        if (!BattleData.teamTemp[userId]) {
+            return []
+        }
+        // 获取队长 userId
+        const _userId = BattleData.teamTemp[userId].for
         Object.keys(BattleData.teamTemp).forEach((item) => {
-            if (BattleData.teamTemp[item].for == userId) {
+            if (BattleData.teamTemp[item].for == _userId) {
                 // 组队战斗
                 teamList.push(User.getUserAttributeByUserId(item))
             }
@@ -254,14 +262,18 @@ export const BattleData = {
         const goalTemp = []
         team.self.forEach((item) => {
             if (item.hp > 0) {
-                selfTemp.push(`lv.${item.lv}[${item.name}]:\n${generateHealthDisplay(item.hp, item.maxHp + item.gain.maxHp)}(${item.hp}/${item.maxHp + item.gain.maxHp})`)
+                selfTemp.push(`lv.${item.lv}[${item.name}]:\n` +
+                    `${generateHealthDisplay(item.hp, item.maxHp + item.gain.maxHp)}(${item.hp}/${item.maxHp + item.gain.maxHp})` +
+                    `\nMP:${item.mp}/${item.maxMp + item.gain.maxMp}`)
             } else {
                 selfTemp.push(`lv.${item.lv}[${item.name}]:已阵亡`)
             }
         })
         team.goal.forEach((item) => {
             if (item.hp > 0) {
-                goalTemp.push(`lv.${item.lv}[${item.name}]:\n${generateHealthDisplay(item.hp, item.maxHp + item.gain.maxHp)}(${item.hp}/${item.maxHp + item.gain.maxHp})`)
+                goalTemp.push(`lv.${item.lv}[${item.name}]:\n` +
+                    `${generateHealthDisplay(item.hp, item.maxHp + item.gain.maxHp)}(${item.hp}/${item.maxHp + item.gain.maxHp})` +
+                    `\nMP:${item.mp}/${item.maxMp + item.gain.maxMp}`)
             } else {
                 goalTemp.push(`lv.${item.lv}[${item.name}]:已阵亡`)
             }
@@ -278,9 +290,9 @@ export const BattleData = {
         if (self && goal) {
             return { over: true, type: '平局' }
         } else if (self) {
-            return { over: true, type: team.isPK ? '敌方赢' : '防御方赢' }
+            return { over: true, type: team.isPK ? '防御方赢' : '敌方赢' }
         } else if (goal) {
-            return { over: true, type: team.isPK ? '我方赢' : '攻击方赢' }
+            return { over: true, type: team.isPK ? '攻击方赢' : '我方赢' }
         }
         return { over: false, type: '未结束' }
     },
@@ -299,11 +311,12 @@ export const BattleData = {
             delete BattleData.lastPlay[session.userId]
         }
     },
-    async play(session: Session, atkType: '普攻', select?: string) {
+    async play(session: Session, atkType: string, select?: string) {
         if (!BattleData.isBattle(session)) {
             await session.send('您并没有任何参与战斗。')
             return
         }
+
         const currentBattle = BattleData.lastPlay[session.userId]
         const allAgentList = [...currentBattle.goal, ...currentBattle.self].sort((a, b) => b.speed - a.speed)
         const msgList = []
@@ -314,10 +327,13 @@ export const BattleData = {
 
             // 过滤存活目标
             let lifeGoalList = [] as BattleAttribute[]
+            let lifeSelfList = [] as BattleAttribute[]
             if (agent.for == 'self') {
                 lifeGoalList = currentBattle.goal.filter((item) => item.for == 'goal' && item.hp > 0)
+                lifeSelfList = currentBattle.self.filter((item) => item.for == 'self' && item.hp > 0)
             } else {
                 lifeGoalList = currentBattle.self.filter((item) => item.for == 'self' && item.hp > 0)
+                lifeSelfList = currentBattle.goal.filter((item) => item.for == 'goal' && item.hp > 0)
             }
             // 无目标
             if (!lifeGoalList.length) continue;
@@ -325,8 +341,10 @@ export const BattleData = {
             // 准备挑选对手
             let selectGoal = {} as BattleAttribute
             let isMy = false // 是否为本人操作
+            let funType = '普攻' // 攻击的方式
             if (agent.type == '玩家' && agent.userId == session.userId) {
                 isMy = true
+                funType = atkType
                 selectGoal = lifeGoalList.find((item) => item.name == select) ||
                     lifeGoalList[Math.floor(Math.random() * lifeGoalList.length)]
             }
@@ -339,14 +357,50 @@ export const BattleData = {
                 selectGoal = lifeGoalList[Math.floor(Math.random() * lifeGoalList.length)]
             }
 
-            const damageInfo = new Damage({ self: agent, goal: selectGoal }).result()
-            giveDamage(agent, selectGoal, damageInfo)
-            msgList.push(`[${agent.type}]${agent.name} 使用普攻攻击了 [${selectGoal.type}]${selectGoal.name}，`
-                + `造成了${damageInfo.harm}伤害。`
-                + (damageInfo.isCsp ? `（暴击！）` : '')
-                + (damageInfo.isEvasion ? `（闪避成功！）` : '')
-                + (damageInfo.isBadDef ? `（未破防！）` : '')
-            )
+            // 普通攻击
+            const noralAtk = () => {
+                const damageInfo = new Damage({ self: agent, goal: selectGoal }).result()
+                giveDamage(agent, selectGoal, damageInfo)
+                msgList.push(`${getLineupName(agent)} 使用普攻攻击了 ${getLineupName(selectGoal)}，`
+                    + `造成了${damageInfo.harm}伤害。` + moreDamageInfo(damageInfo)
+                )
+            }
+            if (funType == '普攻') {
+                noralAtk()
+            } else {
+                // 尝试释放技能
+                if (skillFn[atkType]) {
+                    const selectFn = skillFn[atkType]
+                    // 如果MP消耗足够
+                    if (selectFn.mp == 0 || agent.mp - selectFn.mp >= 0) {
+                        agent.mp -= selectFn.mp
+                        let isNext = false
+                        const fnMsg = selectFn.fn({ self: agent, goal: selectGoal },
+                            { selfList: lifeSelfList, goalList: lifeGoalList }, (val) => {
+                                switch (val.type) {
+                                    case SkillType.伤害技:
+                                        val.target.map((goal) => {
+                                            giveDamage(agent, goal, val.damage)
+                                        })
+                                        break;
+                                    case SkillType.释放失败:
+                                        val.err && session.send(val.err)
+                                    default:
+                                        break;
+                                }
+                                isNext = val.isNext
+                            })
+                        fnMsg && msgList.push(fnMsg)
+                        isNext && noralAtk()
+                    } else {
+                        await session.send(`MP不足，释放失败！`)
+                        noralAtk()
+                    }
+                } else {
+                    await session.send(`未持有该技能或者该技能不存在，释放失败！`)
+                    noralAtk()
+                }
+            }
         }
         await session.send(msgList.length ? `战斗记录：\n` + msgList.join('\n') : '')
         await session.send(BattleData.battleSituationTextFormat(currentBattle))
@@ -356,6 +410,11 @@ export const BattleData = {
             BattleData.clearBattleData(session)
         }
     }
+}
+
+/**  获取阵容角色名 */
+export function getLineupName(agent: BattleAttribute) {
+    return `[${agent.type}]${agent.name}`
 }
 
 /** 初始化战斗属性-用户 */
@@ -394,7 +453,8 @@ function initBattleAttribute(data: UserBaseAttribute | MonsterBaseAttribute): Ba
                 hit: 0,
                 speed: 0
             },
-            buff: []
+            buff: [],
+            fn: []
         } as BattleAttribute
         return temp
     } else {
@@ -427,7 +487,8 @@ function initBattleAttribute(data: UserBaseAttribute | MonsterBaseAttribute): Ba
                 hit: 0,
                 speed: 0
             },
-            buff: []
+            buff: [],
+            fn: []
         } as BattleAttribute
         return temp
     }

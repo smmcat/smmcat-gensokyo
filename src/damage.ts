@@ -14,7 +14,7 @@ interface Callback {
     (data: DamageConfig): void;
 }
 
-type DamageConfig = {
+export type DamageConfig = {
     agent: { self: BattleAttribute, goal: BattleAttribute }
     /** 实际伤害数据 */
     harm: number
@@ -36,7 +36,7 @@ class Damage {
         this.config = {
             agent: { self: { ...agent.self }, goal: { ...agent.goal } },
             harm: 0,
-            default_harm: agent.self.atk + agent.self.gain.atk,
+            default_harm: 0,
             isRealHarm: realHarm,
             isEvasion: false,
             isCsp: false,
@@ -45,13 +45,14 @@ class Damage {
     }
     /** 伤害判定前 */
     before(fn: (config: DamageConfig) => void) {
+        this.config.default_harm = this.config.agent.self.atk + this.config.agent.self.gain.atk
         fn && fn(this.config)
         return this
     }
     /** 真实伤害判定 */
     beforRealHarm(fn: (config: DamageConfig) => void) {
         fn && fn(this.config)
-        if (this.config.isEvasion) {
+        if (this.config.isRealHarm) {
             this.config.harm = this.config.default_harm
         }
         return this
@@ -142,5 +143,12 @@ function giveDamage(self: BattleAttribute, goal: BattleAttribute, damage: Damage
         goal.hp = 0
         return lostHp
     }
+}
+
+/** 伤害额外信息 */
+export function moreDamageInfo(damage: DamageConfig) {
+    return (damage.isCsp ? `（暴击！）` : '')
+        + (damage.isEvasion ? `（闪避成功！）` : '')
+        + (damage.isBadDef ? `（未破防！）` : '')
 }
 export { Damage, giveDamage }
