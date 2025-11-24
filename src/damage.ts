@@ -42,6 +42,7 @@ class Damage {
             isCsp: false,
             isBadDef: false
         }
+
     }
     /** 伤害判定前 */
     before(fn: (config: DamageConfig) => void) {
@@ -66,7 +67,7 @@ class Damage {
         // 最大闪避 95%
         // 等级差距：每大于5级敌方闪避 +20，小于反之
         const lvSup = () => Math.floor((goal.lv - self.lv) / 5) * 20
-        const evaVal = Math.min(95, (goal.evasion - (self.hit - 1000) + lvSup()) / 10)
+        const evaVal = Math.min(95, ((goal.evasion + goal.gain.evasion) - (self.hit - 1000) + lvSup()) / 10)
 
         // 是否闪避成功
         if (random(0, 100) <= evaVal) {
@@ -84,11 +85,11 @@ class Damage {
         if (this.config.isRealHarm) return this
         // 闪避成功不计算暴击
         if (this.config.isEvasion) return this
-        const cspVal = (self.chr - goal.csr) / 10
+        const cspVal = ((self.chr + self.gain.chr) - goal.csr) / 10
         // 是否暴击成功
         if (random(0, 100) <= cspVal) {
             this.config.isCsp = true;
-            this.config.harm = Math.floor(this.config.default_harm * self.ghd)
+            this.config.harm = Math.floor(this.config.default_harm * (self.ghd + self.gain.ghd))
             fn && fn(this.config)
             return this
         }
@@ -103,7 +104,7 @@ class Damage {
         if (this.config.isRealHarm) return this
         // 闪避成功不计算防御扣除
         if (this.config.isEvasion) return this
-        const dpVal = goal.def
+        const dpVal = (goal.def + goal.gain.def)
         fn && fn(this.config)
         if (this.config.harm - dpVal > 0) {
             this.config.harm -= dpVal
@@ -145,10 +146,23 @@ function giveDamage(self: BattleAttribute, goal: BattleAttribute, damage: Damage
     }
 }
 
+/** 治疗目标 */
+function giveCure(goal: BattleAttribute, val: number) {
+    const upVal = goal.hp + val
+    if (upVal < goal.maxHp + goal.gain.maxHp) {
+        goal.hp = upVal
+        return val
+    } else {
+        const abHp = (goal.maxHp + goal.gain.maxHp) - goal.hp
+        goal.hp += abHp
+        return abHp
+    }
+}
+
 /** 伤害额外信息 */
 export function moreDamageInfo(damage: DamageConfig) {
     return (damage.isCsp ? `（暴击！）` : '')
         + (damage.isEvasion ? `（闪避成功！）` : '')
         + (damage.isBadDef ? `（未破防！）` : '')
 }
-export { Damage, giveDamage }
+export { Damage, giveDamage, giveCure }

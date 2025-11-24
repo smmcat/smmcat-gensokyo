@@ -2,7 +2,7 @@ import { Context, Session } from "koishi";
 import { Config } from ".";
 import { User, UserBaseAttribute } from "./users";
 import { Monster, MonsterBaseAttribute } from "./monster";
-import { Damage, giveDamage, moreDamageInfo } from "./damage";
+import { Damage, giveCure, giveDamage, moreDamageInfo } from "./damage";
 import { generateHealthDisplay } from "./utlis";
 import { skillFn, SkillType, UseAtkType } from "./skillFn";
 
@@ -288,13 +288,13 @@ export const BattleData = {
         const self = team.self.every((item) => item.hp <= 0)
         const goal = team.goal.every((item) => item.hp <= 0)
         if (self && goal) {
-            return { over: true, type: '平局' }
+            return { over: true, type: '平局', win: '' }
         } else if (self) {
-            return { over: true, type: team.isPK ? '防御方赢' : '敌方赢' }
+            return { over: true, type: team.isPK ? '防御方赢' : '敌方赢', win: 'goal' }
         } else if (goal) {
-            return { over: true, type: team.isPK ? '攻击方赢' : '我方赢' }
+            return { over: true, type: team.isPK ? '攻击方赢' : '我方赢', win: 'self' }
         }
-        return { over: false, type: '未结束' }
+        return { over: false, type: '未结束', win: '' }
     },
     /** 清理战场 */
     clearBattleData(session: Session) {
@@ -344,7 +344,7 @@ export const BattleData = {
             let funType = '普攻' // 攻击的方式
             if (agent.type == '玩家' && agent.userId == session.userId) {
                 isMy = true
-                funType = atkType
+                funType = atkType;
                 selectGoal = lifeGoalList.find((item) => item.name == select) ||
                     lifeGoalList[Math.floor(Math.random() * lifeGoalList.length)]
             }
@@ -370,6 +370,10 @@ export const BattleData = {
             } else {
                 // 尝试释放技能
                 if (skillFn[atkType]) {
+                    // 是否为(治疗|增益)技能 特殊处理
+                    if ([SkillType.治疗技, SkillType.增益技].includes(skillFn[atkType].type)) {
+                        selectGoal = lifeSelfList.find((item) => item.name == select) || agent
+                    }
                     const selectFn = skillFn[atkType]
                     // 如果MP消耗足够
                     if (selectFn.mp == 0 || agent.mp - selectFn.mp >= 0) {
@@ -381,6 +385,11 @@ export const BattleData = {
                                     case SkillType.伤害技:
                                         val.target.map((goal) => {
                                             giveDamage(agent, goal, val.damage)
+                                        })
+                                        break;
+                                    case SkillType.治疗技:
+                                        val.target.map((goal) => {
+                                            giveCure(goal, val.value)
                                         })
                                         break;
                                     case SkillType.释放失败:
@@ -407,7 +416,73 @@ export const BattleData = {
         const result = BattleData.playOver(currentBattle)
         if (result.over) {
             await session.send(result.type)
+            await BattleData.settlement(currentBattle, result, session)
             BattleData.clearBattleData(session)
+        }
+    },
+    /** 结算奖励 */
+    async settlement(tempData: {
+        self: BattleAttribute[];
+        goal: BattleAttribute[];
+        isPK?: boolean;
+    }, overInfo: {
+        over: boolean;
+        type: string;
+        win: string;
+    }, session: Session) {
+        const selfList = tempData.self.filter((item) => item.type == '玩家')
+        const goalList = tempData.goal.filter((item) => item.type == '玩家')
+
+        const msg = async (val: {
+            name: string
+            maxHp: number;
+            maxMp: number;
+            atk: number;
+            def: number;
+            lv: number;
+        }) => {
+            const msgTemp = `${val.name}[升级]${val.lv}级！\n` +
+                (val.atk ? `攻击力↑ ${val.atk}\n` : '') +
+                (val.def ? `防御力↑ ${val.def}\n` : '') +
+                (val.maxHp ? `最大血量↑ ${val.maxHp}\n` : '') +
+                (val.maxMp ? `最大蓝量↑ ${val.maxMp}` : '')
+            await session.send(msgTemp)
+        }
+        // 同步状态
+        const aynchronize = (agent: BattleAttribute) => {
+            User.userTempData[agent.userId].hp = agent.hp
+            User.userTempData[agent.userId].mp = agent.mp
+        }
+        if (tempData.isPK) {
+            if (overInfo.win == 'self') {
+                await session.send('攻击方获得20EXP')
+                for (const agent of selfList) {
+                    aynchronize(agent)
+                    await User.giveExp(agent.userId, 20, async (val) => await msg(val))
+                }
+            } else if (overInfo.win == 'goal') {
+                await session.send('防御方获得20EXP')
+                for (const agent of goalList) {
+                    aynchronize(agent)
+                    await User.giveExp(agent.userId, 20, async (val) => await msg(val))
+                }
+            }
+        } else {
+
+            // 获取怪物经验总值
+            let val = 0
+            const monsterName = tempData.goal.filter((item) => item.type == '怪物').map(i => ({ name: i.name, lv: i.lv }))
+            monsterName.forEach((item) => {
+                const monster = Monster.monsterTempData[item.name]
+                if (monster[item.name]) {
+                    val += monster[item.name].giveExp + (monster[item.name].giveExp * (monster[item.name].lv - 1) * 0.2)
+                }
+            })
+            for (const agent of selfList) {
+                aynchronize(agent)
+                await session.send(`小队获得${val}EXP`)
+                await User.giveExp(agent.userId, val, async (val) => await msg(val))
+            }
         }
     }
 }

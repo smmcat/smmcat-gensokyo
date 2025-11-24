@@ -299,7 +299,6 @@ export const User = {
     },
     /** 创建游戏账号 */
     async createPlayUser(session: Session) {
-
         const [data] = await User.ctx.database.get('smm_gensokyo_user_attribute', { userId: session.userId })
         if (data) {
             await session.send('已存在账号，请勿重复创建！')
@@ -365,5 +364,57 @@ export const User = {
             `【闪避值】${temp.evasion} (+0)\n` +
             `【暴击率】${(temp.chr / 10).toFixed(1)}% (+0%)\n` +
             `【暴击伤害】${(temp.ghd * 100).toFixed(1)}% (+0%)`
+    },
+    /** 写入用户数据到数据库 */
+    async setDatabaseUserAttribute(userId: string) {
+        const userInfo = User.userTempData[userId]
+        if (!userInfo) return
+        // 写入数据库数据
+        const temp = {
+            playName: userInfo.playName.trim(),
+            hp: userInfo.hp,
+            pp: userInfo.pp,
+            mp: userInfo.mp,
+            lv: userInfo.lv,
+            exp: userInfo.exp
+        } as DatabaseUserAttribute
+        User.ctx.database.set('smm_gensokyo_user_attribute', { userId }, temp)
+    },
+    /** 给予玩家经验 */
+    async giveExp(userId: string, value: number, fn?: (upData: {
+        maxHp: number;
+        maxMp: number;
+        atk: number;
+        def: number;
+        lv: number;
+        name:string
+    }) => Promise<void>) {
+        const userInfo = User.userTempData[userId]
+        if (!userInfo) return
+
+        const beforData = { ...User.getUserAttributeByUserId(userId) }
+        let isUp = false
+        userInfo.exp += value
+        while (true) {
+            const { maxExp } = User.getUserAttributeByUserId(userId)
+            if (userInfo.exp < maxExp) break
+            userInfo.lv += 1
+            userInfo.exp -= maxExp
+            isUp = true
+        }
+
+        if (isUp) {
+            const afterData = User.getUserAttributeByUserId(userId)
+            const upTemp = {
+                name: afterData.playName,
+                lv: afterData.lv,
+                maxHp: afterData.maxHp - beforData.maxHp,
+                maxMp: afterData.maxMp = beforData.maxMp,
+                atk: afterData.atk - beforData.atk,
+                def: afterData.def - beforData.def
+            }
+            fn && await fn(upTemp)
+        }
+        await User.setDatabaseUserAttribute(userId)
     }
 }
