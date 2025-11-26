@@ -323,7 +323,8 @@ export const GensokyoMap = {
     },
     /** 用户移动 */
     async move(session: Session, type: MoveType, fn?: (area: AreaCallbackData) => Promise<void>) {
-        const userCurrentArea = GensokyoMap.userCurrentLoal[session.userId] || {} as UserPosition
+        try {
+            const userCurrentArea = GensokyoMap.userCurrentLoal[session.userId] || {} as UserPosition
         const { floor, areaName, moveing } = userCurrentArea
         if (moveing) {
             await session.send('当前移动冷却中，请稍等...')
@@ -366,6 +367,12 @@ export const GensokyoMap = {
         userCurrentArea.moveing = false
         GensokyoMap.setLocalStoragePoistionData(session.userId)
         return
+        } catch (error) {
+            console.log(error);
+            if(GensokyoMap.userCurrentLoal?.[session.userId]){
+                GensokyoMap.userCurrentLoal[session.userId].moveing = false
+            }
+        }
     },
     /** 查询附近玩家 */
     nearbyPlayersByUserId(userId: string) {

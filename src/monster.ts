@@ -1,6 +1,7 @@
-import { Context, Session } from "koishi";
+import { Context, h, Session } from "koishi";
 import { Config } from ".";
-import { monsterData, MonsterOccupation } from "./data/initMonster";
+import { MonsterBaseAttribute, monsterData, MonsterOccupation, MonsterTempData } from "./data/initMonster";
+import { monsterBenchmark } from "./data/benchmark";
 
 
 declare module 'koishi' {
@@ -11,73 +12,6 @@ declare module 'koishi' {
 
 
 
-/** 怪物基础属性 */
-export type MonsterBaseAttribute = {
-    /** 凭据ID */
-    id?: number,
-    /** 怪物名称 */
-    name: string,
-    /** 怪物说明 */
-    info?: string,
-    /** 类型 */
-    type: MonsterOccupation,
-    /** 血量 */
-    hp: number,
-    /** 最大血量 */
-    maxHp: number,
-    /** 蓝量 */
-    mp: number,
-    /** 最大蓝量 */
-    maxMp: number,
-    /** 攻击力 */
-    atk: number,
-    /** 防御力 */
-    def: number,
-    /** 暴击率 */
-    chr: number,
-    /** 暴击伤害 */
-    ghd: number,
-    /** 闪避值 */
-    evasion: number,
-    /** 命中值 */
-    hit: number,
-    /** 出手速度 */
-    speed: number
-    /** 获得经验 */
-    giveExp: number
-}
-
-type MonsterTempData = {
-    [keys: string]: MonsterBaseAttribute
-}
-
-/** 怪物等级增益算法 */
-type MonsterBenchmark = {
-    [keys: number | string]: {
-        /** 血量 */
-        hp: number,
-        /** 最大血量 */
-        maxHp: number,
-        /** 蓝量 */
-        mp: number,
-        /** 最大蓝量 */
-        maxMp: number,
-        /** 攻击力 */
-        atk: number,
-        /** 防御力 */
-        def: number,
-        /** 暴击率 */
-        chr: number,
-        /** 暴击伤害 */
-        ghd: number,
-        /** 闪避值 */
-        evasion: number,
-        /** 命中值 */
-        hit: number,
-        /** 出手速度 */
-        speed: number
-    }
-}
 
 export const Monster = {
     config: {} as Config,
@@ -129,54 +63,11 @@ export const Monster = {
     },
     getMonsterAttributeData(monsterName: string, lv: number) {
         const monster = Monster.monsterTempData[monsterName]
-        if (!monster) return null
-
-        const benchmark = {
-            10: {
-                hp: 1.4,
-                maxHp: 1.4,
-                mp: 1.2,
-                maxMp: 1.2,
-                atk: 1.2,
-                def: 1.1,
-                chr: 1.1,
-                evasion: 1.2,
-                hit: 1.2,
-                ghd: 1.0,
-                speed: 1.05
-            },
-            20: {
-                hp: 1.35,
-                maxHp: 1.35,
-                mp: 1.1,
-                maxMp: 1.1,
-                atk: 1.1,
-                def: 1.1,
-                chr: 1.1,
-                evasion: 1.1,
-                hit: 1.1,
-                ghd: 1.0,
-                speed: 1.05
-            },
-            40: {
-                hp: 1.2,
-                maxHp: 1.2,
-                mp: 1.05,
-                maxMp: 1.05,
-                atk: 1.1,
-                def: 1.05,
-                chr: 1.05,
-                evasion: 1.05,
-                hit: 1.05,
-                ghd: 1.05,
-                speed: 1.05
-            }
-        } as MonsterBenchmark
+        if (!monster) return null   
         const temp = { lv } as MonsterBaseAttribute & { lv: number }
-
         // 选择等级配置
-        const lvScope = Object.keys(benchmark).reverse().find((item) => Number(item) < lv) || 10
-        const useBenchmark = benchmark[lvScope]
+        const lvScope = Object.keys(monsterBenchmark).reverse().find((item) => Number(item) < lv) || 10
+        const useBenchmark = monsterBenchmark[lvScope]
         console.log(useBenchmark);
 
         // 赋予等级叠加后的属性
@@ -190,8 +81,9 @@ export const Monster = {
     },
     /** 格式化怪物属性数据 */
     monsterAttributeTextFormat(monster: MonsterBaseAttribute & { lv: number }) {
-        const { name, type, lv, hp, maxHp, mp, maxMp, atk, def, chr, evasion, hit, ghd, speed, info } = monster
-        const attributeText = `Lv.${lv}【${name}】\n\n` +
+        const { name, type, lv, hp, maxHp, mp, maxMp, atk, def, chr, evasion, hit, ghd, speed, info, pic } = monster
+        const attributeText = (pic ? h.image(pic) + '\n' : '') +
+            `Lv.${lv}【${name}】\n\n` +
             `【怪物类型】${type}\n` +
             `【生命值】${hp}/${maxHp}\n` +
             `【魔法值】${mp}/${maxMp}\n` +

@@ -1,5 +1,7 @@
 import { Context, Session } from "koishi";
 import { Config } from ".";
+import { userBenchmark } from "./data/benchmark";
+import { Props } from "./props";
 
 
 declare module 'koishi' {
@@ -48,37 +50,14 @@ export type UserBaseAttribute = {
     chr: number,
     /** 暴击伤害 */
     ghd: number,
+    /** 暴击抵抗 */
+    csr: number,
     /** 闪避值 */
     evasion: number,
     /** 命中值 */
     hit: number,
     /** 出手速度 */
     speed: number
-}
-
-export type UserBenchmark = {
-    [keys: number]: {
-        /** 最大经验 */
-        maxExp: number,
-        /** 最大血量 */
-        maxHp: number,
-        /** 最大蓝量 */
-        maxMp: number,
-        /** 攻击力 */
-        atk: number,
-        /** 防御力 */
-        def: number,
-        /** 暴击率 */
-        chr: number,
-        /** 暴击伤害 */
-        ghd: number,
-        /** 闪避值 */
-        evasion: number,
-        /** 命中值 */
-        hit: number,
-        /** 出手速度 */
-        speed: number
-    }
 }
 
 export type DatabaseUserAttribute = {
@@ -98,6 +77,8 @@ export type DatabaseUserAttribute = {
     mp: number,
     /** 活力 */
     pp: number,
+    /** 是否死亡 */
+    isDie: boolean
 }
 
 type UserTempData = {
@@ -122,10 +103,11 @@ export const UserOccDict: Record<UserOccupation, { info: string, initStatus: Use
             atk: 12,
             def: 5,
             chr: 50,
+            csr: 0,
             ghd: 1.2,
             speed: 5,
             evasion: 100,
-            hit: 1000
+            hit: 100
         }
     },
     [UserOccupation.法师]: {
@@ -146,10 +128,11 @@ export const UserOccDict: Record<UserOccupation, { info: string, initStatus: Use
             atk: 10,
             def: 2,
             chr: 50,
+            csr: 0,
             ghd: 1.2,
             speed: 5,
             evasion: 100,
-            hit: 1000
+            hit: 100
         }
     },
     [UserOccupation.刺客]: {
@@ -170,10 +153,11 @@ export const UserOccDict: Record<UserOccupation, { info: string, initStatus: Use
             atk: 8,
             def: 2,
             chr: 80,
+            csr: 0,
             ghd: 1.3,
             speed: 6,
             evasion: 120,
-            hit: 1000
+            hit: 100
         }
     }
 };
@@ -196,7 +180,8 @@ export const User = {
                 lv: 'integer',
                 hp: 'integer',
                 mp: 'integer',
-                pp: 'integer'
+                pp: 'integer',
+                isDie: 'boolean'
             },
             {
                 primary: 'userId',
@@ -229,6 +214,7 @@ export const User = {
             ...UserOccDict[UserDict.type].initStatus,
             lv: UserDict.lv,
             hp: UserDict.hp,
+            mp: UserDict.mp,
             exp: UserDict.exp,
             pp: UserDict.pp,
             playName: UserDict.playName,
@@ -236,49 +222,10 @@ export const User = {
         } as UserBaseAttribute
 
         const lv = UserData.lv
-        const benchmark = {
-            10: {
-                maxExp: 2,
-                maxHp: 1.2,
-                maxMp: 1.1,
-                atk: 1.12,
-                def: 1.1,
-                chr: 1.1,
-                evasion: 1.1,
-                hit: 1.1,
-                ghd: 1.0,
-                speed: 1.05
-            },
-            20: {
-                maxExp: 1.8,
-                maxHp: 1.15,
-                maxMp: 1.1,
-                atk: 1.1,
-                def: 1.1,
-                chr: 1.1,
-                evasion: 1.1,
-                hit: 1.08,
-                ghd: 1.0,
-                speed: 1.05
-            },
-            40: {
-                maxExp: 1.5,
-                maxHp: 1.1,
-                maxMp: 1.05,
-                atk: 1.1,
-                def: 1.05,
-                chr: 1.05,
-                evasion: 1.05,
-                hit: 1.05,
-                ghd: 1.05,
-                speed: 1.05
-            }
-        } as UserBenchmark
         const temp = {} as UserBaseAttribute
-
         // 选择等级配置
-        const lvScope = Object.keys(benchmark).reverse().find((item) => Number(item) < lv) || 10
-        const useBenchmark = benchmark[lvScope]
+        const lvScope = Object.keys(userBenchmark).reverse().find((item) => Number(item) < lv) || 10
+        const useBenchmark = userBenchmark[lvScope]
 
         // 赋予等级叠加后的属性
         Object.keys(UserData).forEach((i) => {
@@ -337,10 +284,12 @@ export const User = {
             pp: UserOccDict[jobType].initStatus.pp,
             mp: UserOccDict[jobType].initStatus.mp,
             lv: 1,
-            exp: 0
+            exp: 0,
+            isDie: false
         } as DatabaseUserAttribute
         User.ctx.database.create('smm_gensokyo_user_attribute', temp)
         User.userTempData[session.userId] = temp as DatabaseUserAttribute
+        await Props.initUserPropsData(session.userId) // 道具信息写入
         await session.send('创建成功！\n' + User.userAttributeTextFormat(session.userId))
     },
     /** 信息格式化 */
@@ -359,11 +308,12 @@ export const User = {
             `-----------------\n` +
             `【攻击力】${temp.atk} (+0)\n` +
             `【防御力】${temp.def} (+0)\n` +
-            `【命中值】${temp.hit} (+0)\n` +
             `【速度值】${temp.speed} (+0)\n` +
             `【闪避值】${temp.evasion} (+0)\n` +
+            `【命中率】${(temp.hit / 10 + 100).toFixed(1)}% (+0%)\n` +
             `【暴击率】${(temp.chr / 10).toFixed(1)}% (+0%)\n` +
-            `【暴击伤害】${(temp.ghd * 100).toFixed(1)}% (+0%)`
+            `【暴击伤害】${(temp.ghd * 100).toFixed(1)}% (+0%)` +
+            (temp.csr > 0 ? `\n【暴击抵抗】${temp.csr}` : '')
     },
     /** 写入用户数据到数据库 */
     async setDatabaseUserAttribute(userId: string) {
@@ -387,7 +337,7 @@ export const User = {
         atk: number;
         def: number;
         lv: number;
-        name:string
+        name: string
     }) => Promise<void>) {
         const userInfo = User.userTempData[userId]
         if (!userInfo) return
@@ -416,5 +366,114 @@ export const User = {
             fn && await fn(upTemp)
         }
         await User.setDatabaseUserAttribute(userId)
+    },
+    /** 给予玩家死亡 */
+    async giveDie(userId: string) {
+        const userInfo = User.userTempData[userId]
+        userInfo.hp = 0;
+        userInfo.isDie = true;
+        await User.setDatabaseUserAttribute(userId)
+    },
+    /** 给予玩家恢复 */
+    async giveLife(userId: string, val?: number) {
+        const userInfo = User.userTempData[userId]
+        if (!val) {
+            const { maxHp } = User.getUserAttributeByUserId(userId)
+            userInfo.hp = maxHp
+        } else {
+            userInfo.hp = val
+        }
+        await User.setDatabaseUserAttribute(userId)
+    },
+    /** 给予玩家血量或者蓝量 */
+    async giveHPMP(userId: string, value: { hp: number, mp: number }, fn?: (upData: {
+        currentHP: number,
+        currentMP: number,
+        err?: string
+    }) => Promise<void>) {
+        const userInfo = User.userTempData[userId]
+        if (!userInfo) return
+        if (userInfo.isDie) {
+            fn && await fn({
+                currentHP: 0,
+                currentMP: 0,
+                err: '角色已死亡，无法使用恢复道具。'
+            })
+            return
+        }
+        const { maxHp, maxMp } = User.getUserAttributeByUserId(userId)
+        if (userInfo.hp + (value.hp || 0) < maxHp) {
+            userInfo.hp += value.hp || 0
+        } else {
+            userInfo.hp = maxHp
+        }
+        if (userInfo.mp + (value.mp || 0) < maxHp) {
+            userInfo.mp += value.mp || 0
+        } else {
+            userInfo.mp = maxMp
+        }
+        fn && await fn({
+            currentHP: userInfo.hp,
+            currentMP: userInfo.mp
+        })
+        await User.setDatabaseUserAttribute(userId)
+    },
+    /** 给予玩家PP值 */
+    async givePP(userId: string, value: number, fn?: (upData: {
+        currentPP: number
+    }) => Promise<void>) {
+        const userInfo = User.userTempData[userId]
+        if (!userInfo) return
+        const { maxPp } = User.getUserAttributeByUserId(userId)
+        if (userInfo.pp + value < maxPp) {
+            userInfo.pp += value
+        } else {
+            userInfo.pp = maxPp
+        }
+        fn && await fn({
+            currentPP: userInfo.pp
+        })
+        await User.setDatabaseUserAttribute(userId)
+    },
+    /** 给予玩家货币 */
+    async giveMonetary(userId: string, val: number, fn?: (upData: {
+        val: number,
+        currentVal: number,
+        err?: string
+    }) => Promise<void>) {
+        const [bindData] = await User.ctx.database.get('binding', { pid: userId })
+        if (bindData && val) {
+            const [currentM] = await User.ctx.database.get('monetary', { uid: bindData.aid })
+            await User.ctx.monetary.gain(bindData.aid, val)
+            fn && fn({ val, currentVal: currentM.value += val })
+        }
+    },
+    /** 收取玩家货币 */
+    async lostMonetary(userId: string, val: number, fn?: (upData: {
+        val: number,
+        currentVal: number,
+        err?: string
+    }) => Promise<void>) {
+        const [bindData] = await User.ctx.database.get('binding', { pid: userId })
+        if (bindData && val) {
+            const [currentM] = await User.ctx.database.get('monetary', { uid: bindData.aid })
+            if (currentM.value - val < 0) {
+                fn && fn({
+                    val: Math.abs(val),
+                    currentVal: currentM.value,
+                    err: "余额不足！"
+                })
+                return
+            }
+            await User.ctx.monetary.cost(bindData.aid, val)
+            fn && fn({
+                val: Math.abs(val),
+                currentVal: currentM.value - val
+            })
+        }
+    },
+    /** 目标是否死亡 */
+    isDie(userId: string) {
+        return User.userTempData[userId]?.isDie
     }
 }

@@ -67,7 +67,7 @@ class Damage {
         // 最大闪避 95%
         // 等级差距：每大于5级敌方闪避 +20，小于反之
         const lvSup = () => Math.floor((goal.lv - self.lv) / 5) * 20
-        const evaVal = Math.min(95, ((goal.evasion + goal.gain.evasion) - (self.hit - 1000) + lvSup()) / 10)
+        const evaVal = Math.min(95, ((goal.evasion + goal.gain.evasion) - (self.hit) + lvSup()) / 10)
 
         // 是否闪避成功
         if (random(0, 100) <= evaVal) {

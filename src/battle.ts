@@ -1,10 +1,11 @@
 import { Context, Session } from "koishi";
 import { Config } from ".";
 import { User, UserBaseAttribute } from "./users";
-import { Monster, MonsterBaseAttribute } from "./monster";
+import { Monster } from "./monster";
 import { Damage, giveCure, giveDamage, moreDamageInfo } from "./damage";
 import { generateHealthDisplay } from "./utlis";
 import { skillFn, SkillType, UseAtkType } from "./skillFn";
+import { MonsterBaseAttribute } from "./data/initMonster";
 
 declare module 'koishi' {
     interface Tables {
@@ -298,18 +299,13 @@ export const BattleData = {
     },
     /** 清理战场 */
     clearBattleData(session: Session) {
-        if (BattleData.isTeam(session)) {
-            const currentBattle = BattleData.lastPlay[session.userId]
-            const allAgentList = [...currentBattle.goal, ...currentBattle.self].sort((a, b) => b.speed - a.speed)
-            allAgentList.forEach((item) => {
-                if (item.type == '玩家') {
-                    delete BattleData.lastPlay[item.userId]
-                }
-            })
-        } else {
-            // 单人战斗
-            delete BattleData.lastPlay[session.userId]
-        }
+        const currentBattle = BattleData.lastPlay[session.userId]
+        const allAgentList = [...currentBattle.goal, ...currentBattle.self]
+        allAgentList.forEach((item) => {
+            if (item.type == '玩家') {
+                delete BattleData.lastPlay[item.userId]
+            }
+        })
     },
     async play(session: Session, atkType: string, select?: string) {
         if (!BattleData.isBattle(session)) {
@@ -430,6 +426,7 @@ export const BattleData = {
         type: string;
         win: string;
     }, session: Session) {
+        const allList = [...tempData.self, ...tempData.goal].filter((item) => item.type == '玩家')
         const selfList = tempData.self.filter((item) => item.type == '玩家')
         const goalList = tempData.goal.filter((item) => item.type == '玩家')
 
@@ -455,33 +452,52 @@ export const BattleData = {
         }
         if (tempData.isPK) {
             if (overInfo.win == 'self') {
-                await session.send('攻击方获得20EXP')
-                for (const agent of selfList) {
+                await session.send('攻击方获得20EXP、5货币')
+                for (const agent of allList) {
                     aynchronize(agent)
-                    await User.giveExp(agent.userId, 20, async (val) => await msg(val))
+                    if (agent.for == 'self') {
+                        if (agent.hp <= 0) {
+                            User.userTempData[agent.userId].hp = 0
+                            User.userTempData[agent.userId].isDie = true
+                        }
+                        await User.giveExp(agent.userId, 20, async (val) => await msg(val))
+                        await User.giveMonetary(agent.userId, 5)
+                    }
                 }
             } else if (overInfo.win == 'goal') {
-                await session.send('防御方获得20EXP')
-                for (const agent of goalList) {
+                await session.send('防御方获得20EXP、5货币')
+                for (const agent of allList) {
                     aynchronize(agent)
-                    await User.giveExp(agent.userId, 20, async (val) => await msg(val))
+                    if (agent.for == 'goal') {
+                        if (agent.hp <= 0) {
+                            User.userTempData[agent.userId].hp = 0
+                            User.userTempData[agent.userId].isDie = true
+                        }
+                        await User.giveExp(agent.userId, 20, async (val) => await msg(val))
+                        await User.giveMonetary(agent.userId, 5)
+                    }
                 }
             }
         } else {
-
             // 获取怪物经验总值
             let val = 0
+            // 获得怪物货币总值
+            let monetary = 0
             const monsterName = tempData.goal.filter((item) => item.type == '怪物').map(i => ({ name: i.name, lv: i.lv }))
             monsterName.forEach((item) => {
                 const monster = Monster.monsterTempData[item.name]
-                if (monster[item.name]) {
-                    val += monster[item.name].giveExp + (monster[item.name].giveExp * (monster[item.name].lv - 1) * 0.2)
+                if (monster) {
+                    val += Math.floor(monster.giveExp + (monster.giveExp * (item.lv - 1) * 0.2))
+                    monetary += Math.floor(monster.giveMonetary + (monster.giveExp * (item.lv - 1) * 0.1))
                 }
             })
+            await session.send(`小队获得${val}EXP、${monetary}货币！`)
             for (const agent of selfList) {
                 aynchronize(agent)
-                await session.send(`小队获得${val}EXP`)
-                await User.giveExp(agent.userId, val, async (val) => await msg(val))
+                if (overInfo.win == 'self') {
+                    await User.giveExp(agent.userId, val, async (val) => await msg(val))
+                    await User.giveMonetary(agent.userId, monetary)
+                }
             }
         }
     }
@@ -513,7 +529,7 @@ function initBattleAttribute(data: UserBaseAttribute | MonsterBaseAttribute): Ba
             def: userData.def,
             chr: userData.chr,
             ghd: userData.ghd,
-            csr: 0,
+            csr: userData.csr,
             evasion: userData.evasion,
             hit: userData.hit,
             speed: userData.speed,
@@ -547,7 +563,7 @@ function initBattleAttribute(data: UserBaseAttribute | MonsterBaseAttribute): Ba
             def: monsterData.def,
             chr: monsterData.chr,
             ghd: monsterData.ghd,
-            csr: 0,
+            csr: monsterData.csr,
             evasion: monsterData.evasion,
             hit: monsterData.hit,
             speed: monsterData.speed,

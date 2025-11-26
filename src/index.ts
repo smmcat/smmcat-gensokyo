@@ -6,6 +6,7 @@ import { Monster } from './monster';
 import { BattleData } from './battle';
 import { random } from './utlis';
 import { skillFn } from './skillFn';
+import { Props } from './props';
 export const name = 'smmcat-gensokyo'
 
 export const inject = {
@@ -22,6 +23,7 @@ export function apply(ctx: Context, config: Config) {
     GensokyoMap.init(config, ctx)
     User.init(config, ctx)
     Monster.init(config, ctx)
+    Props.init(config, ctx)
   })
 
   ctx
@@ -37,6 +39,9 @@ export function apply(ctx: Context, config: Config) {
       if (BattleData.isBattle(session)) {
         await session.send('您正在战斗中，无法移动！')
         return
+      }
+      if (User.isDie(session.userId)) {
+        return `你已经阵亡，请发送 /补给 进行治疗。`
       }
       GensokyoMap.move(session, MoveType.上, async (val) => {
         await session.send(GensokyoMap.userAreaTextFormat(userData.playName, val))
@@ -62,6 +67,9 @@ export function apply(ctx: Context, config: Config) {
         await session.send('您正在战斗中，无法移动！')
         return
       }
+      if (User.isDie(session.userId)) {
+        return `你已经阵亡，请发送 /补给 进行治疗。`
+      }
       GensokyoMap.move(session, MoveType.下, async (val) => {
         await session.send(GensokyoMap.userAreaTextFormat(userData.playName, val))
         // 概率遇到怪物
@@ -86,6 +94,9 @@ export function apply(ctx: Context, config: Config) {
         await session.send('您正在战斗中，无法移动！')
         return
       }
+      if (User.isDie(session.userId)) {
+        return `你已经阵亡，请发送 /补给 进行治疗。`
+      }
       GensokyoMap.move(session, MoveType.左, async (val) => {
         await session.send(GensokyoMap.userAreaTextFormat(userData.playName, val))
         // 概率遇到怪物
@@ -109,6 +120,9 @@ export function apply(ctx: Context, config: Config) {
       if (BattleData.isBattle(session)) {
         await session.send('您正在战斗中，无法移动！')
         return
+      }
+      if (User.isDie(session.userId)) {
+        return `你已经阵亡，请发送 /补给 进行治疗。`
       }
       GensokyoMap.move(session, MoveType.右, async (val) => {
         await session.send(GensokyoMap.userAreaTextFormat(userData.playName, val))
@@ -146,6 +160,13 @@ export function apply(ctx: Context, config: Config) {
     })
 
   ctx
+    .command('幻想乡/个人信息').userFields(['id'])
+    .action(async ({ session }) => {
+      const [data] = await ctx.database.get('monetary', { uid: session.user.id })
+      return `[${User.userTempData[session.userId].playName}]：您当前货币为：${data?.value || 0}个`
+    })
+
+  ctx
     .command('幻想乡/开始注册')
     .action(async ({ session }) => {
       await User.createPlayUser(session)
@@ -158,7 +179,7 @@ export function apply(ctx: Context, config: Config) {
       if (!lv) lv = 1
       const result = Monster.getMonsterAttributeData(monster, lv)
       if (!result) return `没有找到该怪物信息...`
-      return `查找成功！\n` + Monster.monsterAttributeTextFormat(result)
+      return Monster.monsterAttributeTextFormat(result)
     })
 
   ctx
@@ -168,6 +189,9 @@ export function apply(ctx: Context, config: Config) {
       if (!userData) return
 
       GensokyoMap.initUserPoistion(session, userData)
+      if (User.isDie(session.userId)) {
+        return `你已经阵亡，请发送 /补给 进行治疗。`
+      }
       const areaInfo = GensokyoMap.getUserCurrentArea(session.userId)
       if (goal) {
         if (!areaInfo.monster?.map(i => i.name).includes(goal)) {
@@ -198,7 +222,7 @@ export function apply(ctx: Context, config: Config) {
     })
 
   ctx
-    .command('打怪pk <goal>')
+    .command('幻想乡/打怪pk <goal>')
     .action(async ({ session }, goal) => {
       // 先看看自己属性
       const userData = await User.getUserAttribute(session)
@@ -206,6 +230,9 @@ export function apply(ctx: Context, config: Config) {
       // 万一玩家自己都不知道自己在哪
       GensokyoMap.initUserPoistion(session, userData)
 
+      if (User.isDie(session.userId)) {
+        return `你已经阵亡，请发送 /补给 进行治疗。`
+      }
       // 难道打自己？
       if (!goal) {
         await session.send('请选择PK目标！')
@@ -220,6 +247,11 @@ export function apply(ctx: Context, config: Config) {
         await session.send(`PK失败，当前区域未存在【${goal}】玩家`)
         return
       }
+
+      if (User.isDie(exist.userId)) {
+        return `目标已经阵亡，请更换PK目标对象...`
+      }
+
       // 打之前应该先问问对方是否有队伍？
       if (BattleData.isTeamByUserId(exist.userId)) {
         // 我打一群？真的假的
@@ -235,10 +267,38 @@ export function apply(ctx: Context, config: Config) {
     })
 
   ctx
-    .command('技能查询 <goal>')
+    .command('幻想乡/技能查询 <goal>')
     .action(async ({ session }, goal) => {
       if (!goal) return `请输入技能名，例如 /技能查询 重砍`
       if (!skillFn[goal]) return `没有存在 ${goal} 技能！`
       return `[${goal}]信息如下：\n` + skillFn[goal].info
+    })
+
+
+  const temp = {}
+  ctx
+    .command('幻想乡/补给')
+    .action(async ({ session }) => {
+      const userData = await User.getUserAttribute(session)
+      if (!userData) return
+      GensokyoMap.initUserPoistion(session, userData)
+      if (temp[session.userId] == undefined) {
+        temp[session.userId] = 0
+      }
+      const useTime = Date.now() - temp[session.userId]
+      if (useTime < 360000) {
+        return `请等待下一个补给时间！剩余${Math.floor(360000 - (useTime / 60000))}分钟。`
+      }
+      temp[session.userId] = Date.now()
+      const { maxHp, maxMp, playName } = User.getUserAttributeByUserId(session.userId)
+      console.log(maxMp);
+
+      User.userTempData[session.userId].hp = maxHp
+      User.userTempData[session.userId].mp = maxMp
+      User.userTempData[session.userId].isDie = false
+      console.log(User.userTempData[session.userId]);
+
+      await User.setDatabaseUserAttribute(session.userId)
+      return playName + `通过补给，目前已恢复HP和MP`
     })
 }
