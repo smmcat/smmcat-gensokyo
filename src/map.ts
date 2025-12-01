@@ -140,7 +140,8 @@ export const GensokyoMap = {
                     areaName: "蜘蛛森林三",
                     type: AreaType.冒险区,
                     needLv: 1,
-                    left: "蜘蛛森林一"
+                    left: "蜘蛛森林一",
+                    monster: [{ name: '大妖精', lv: 3 }]
                 },
                 "蜘蛛森林通道": {
                     floor: 1,
@@ -244,6 +245,7 @@ export const GensokyoMap = {
                     floor: 1,
                     areaName: "绿野平原三",
                     type: AreaType.冒险区,
+                    monster: [{ name: 'dora', lv: 5 }],
                     needLv: 1,
                     left: "绿野平原一",
                     down: "绿野平原六"
@@ -254,7 +256,8 @@ export const GensokyoMap = {
                     type: AreaType.冒险区,
                     needLv: 1,
                     top: "绿野平原一",
-                    down: "野猪巢穴"
+                    down: "野猪巢穴",
+                    monster: [{ name: '琪露诺', lv: 10 }]
                 },
                 "绿野平原六": {
                     floor: 1,
@@ -267,9 +270,10 @@ export const GensokyoMap = {
                 "野猪巢穴": {
                     floor: 1,
                     areaName: "野猪巢穴",
-                    type: AreaType.冒险区,
+                    type: AreaType.BOSS区,
                     needLv: 1,
-                    top: "绿野平原四"
+                    top: "绿野平原四",
+                    monster: [{ name: '蓬莱山辉夜', lv: 20 }]
                 }
             }
         }
@@ -325,51 +329,51 @@ export const GensokyoMap = {
     async move(session: Session, type: MoveType, fn?: (area: AreaCallbackData) => Promise<void>) {
         try {
             const userCurrentArea = GensokyoMap.userCurrentLoal[session.userId] || {} as UserPosition
-        const { floor, areaName, moveing } = userCurrentArea
-        if (moveing) {
-            await session.send('当前移动冷却中，请稍等...')
-            return
-        }
-        if (!(floor && areaName)) {
-            await session.send('您当前位置有误，请使用(还没写好的指令)脱离卡死...')
-            return
-        }
-        userCurrentArea.moveing = true
-        const nowPosition = GensokyoMap.mapLocalData[floor][areaName]
-        if (!nowPosition[type]) {
-            await session.send('抱歉，此路不通！')
+            const { floor, areaName, moveing } = userCurrentArea
+            if (moveing) {
+                await session.send('当前移动冷却中，请稍等...')
+                return
+            }
+            if (!(floor && areaName)) {
+                await session.send('您当前位置有误，请使用(还没写好的指令)脱离卡死...')
+                return
+            }
+            userCurrentArea.moveing = true
+            const nowPosition = GensokyoMap.mapLocalData[floor][areaName]
+            if (!nowPosition[type]) {
+                await session.send('抱歉，此路不通！')
+                userCurrentArea.moveing = false
+                return
+            }
+            const newArea = GensokyoMap.mapLocalData[floor][nowPosition[type]]
+            if (!newArea) {
+                await session.send('进入失败，地图中不存在 ' + nowPosition[type] + ' 这个区域。')
+                userCurrentArea.moveing = false
+                return
+            }
+            if (newArea.type == AreaType.禁用) {
+                await session.send(`该区域暂时未开放...`)
+                userCurrentArea.moveing = false
+                return
+            }
+            if (newArea.needLv > 1) {
+                await session.send(`当前区域由于您的等级未达到最低要求，暂时无法进入。\n需要等级：${newArea.needLv}级`)
+                userCurrentArea.moveing = false
+                return
+            }
+            userCurrentArea.areaName = newArea.areaName
+            const areaInfo = {
+                user: { ...userCurrentArea },
+                map: { ...newArea }
+            }
+            fn && await fn(areaInfo)
+            await delay(3000)
             userCurrentArea.moveing = false
+            GensokyoMap.setLocalStoragePoistionData(session.userId)
             return
-        }
-        const newArea = GensokyoMap.mapLocalData[floor][nowPosition[type]]
-        if (!newArea) {
-            await session.send('进入失败，地图中不存在 ' + nowPosition[type] + ' 这个区域。')
-            userCurrentArea.moveing = false
-            return
-        }
-        if (newArea.type == AreaType.禁用) {
-            await session.send(`该区域暂时未开放...`)
-            userCurrentArea.moveing = false
-            return
-        }
-        if (newArea.needLv > 1) {
-            await session.send(`当前区域由于您的等级未达到最低要求，暂时无法进入。\n需要等级：${newArea.needLv}级`)
-            userCurrentArea.moveing = false
-            return
-        }
-        userCurrentArea.areaName = newArea.areaName
-        const areaInfo = {
-            user: { ...userCurrentArea },
-            map: { ...newArea }
-        }
-        fn && await fn(areaInfo)
-        await delay(3000)
-        userCurrentArea.moveing = false
-        GensokyoMap.setLocalStoragePoistionData(session.userId)
-        return
         } catch (error) {
             console.log(error);
-            if(GensokyoMap.userCurrentLoal?.[session.userId]){
+            if (GensokyoMap.userCurrentLoal?.[session.userId]) {
                 GensokyoMap.userCurrentLoal[session.userId].moveing = false
             }
         }

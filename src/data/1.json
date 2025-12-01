@@ -41,7 +41,13 @@
         "areaName": "蜘蛛森林三",
         "type": "冒险区",
         "needLv": 1,
-        "left": "蜘蛛森林一"
+        "left": "蜘蛛森林一",
+        "monster": [
+            {
+                "name": "大妖精",
+                "lv": 3
+            }
+        ]
     },
     "蜘蛛森林通道": {
         "floor": 1,
@@ -131,6 +137,10 @@
             {
                 "name": "小蜜蜂",
                 "lv": 1
+            },
+            {
+                "name": "dora",
+                "lv": 2
             }
         ],
         "needLv": 1,
@@ -143,6 +153,24 @@
         "floor": 1,
         "areaName": "绿野平原二",
         "type": "冒险区",
+        "monster": [
+            {
+                "name": "dora",
+                "lv": 2
+            },
+            {
+                "name": "dora",
+                "lv": 2
+            },
+            {
+                "name": "dora",
+                "lv": 3
+            },
+            {
+                "name": "dora",
+                "lv": 2
+            }
+        ],
         "needLv": 1,
         "right": "绿野平原一",
         "down": "绿野平原五"
@@ -151,6 +179,12 @@
         "floor": 1,
         "areaName": "绿野平原三",
         "type": "冒险区",
+        "monster": [
+            {
+                "name": "dora",
+                "lv": 5
+            }
+        ],
         "needLv": 1,
         "left": "绿野平原一",
         "down": "绿野平原六"
@@ -161,7 +195,13 @@
         "type": "冒险区",
         "needLv": 1,
         "top": "绿野平原一",
-        "down": "野猪巢穴"
+        "down": "野猪巢穴",
+        "monster": [
+            {
+                "name": "琪露诺",
+                "lv": 10
+            }
+        ]
     },
     "绿野平原六": {
         "floor": 1,
@@ -176,6 +216,12 @@
         "areaName": "野猪巢穴",
         "type": "冒险区",
         "needLv": 1,
-        "top": "绿野平原四"
+        "top": "绿野平原四",
+        "monster": [
+            {
+                "name": "蓬莱山辉夜",
+                "lv": 20
+            }
+        ]
     }
 }

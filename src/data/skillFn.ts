@@ -1,6 +1,6 @@
-import { BattleAttribute, getLineupName } from "./battle";
-import { Damage, DamageConfig, moreDamageInfo } from "./damage";
-import { UserOccupation } from "./users";
+import { BattleAttribute, getLineupName } from "../battle";
+import { Damage, DamageConfig, moreDamageInfo } from "../damage";
+import { giveBuff } from "./buffFn";
 
 export enum SkillType {
     释放失败 = '释放失败',
@@ -8,6 +8,12 @@ export enum SkillType {
     增益技 = '增益技',
     治疗技 = '治疗技',
     奥义 = '奥义'
+}
+
+export enum UserOccupation {
+    剑士 = "剑士",
+    法师 = "法师",
+    刺客 = "刺客"
 }
 
 interface DamageSkillParams {
@@ -33,10 +39,10 @@ interface HealSkillParams {
 
 interface BuffSkillParams {
     type: SkillType.增益技;
-    buffs: { val: number, time: number, name: number }[];
-    target: BattleAttribute | BattleAttribute[],
     /** 是否衔接普攻 */
     isNext: boolean;
+    /** 错误提示 */
+    err?: string
 }
 
 interface UltimateSkillParams {
@@ -194,6 +200,9 @@ export const skillFn: SkillFn = {
         mp: 30,
         fn: function (agent, agentList, fn?) {
             const selectGoal = agent.goal
+            if (agent.goal.hp <= 0) {
+                return `${getLineupName(agent.self)}已阵亡，无法恢复...`
+            }
             fn({
                 value: 40,
                 target: [selectGoal],
@@ -201,6 +210,42 @@ export const skillFn: SkillFn = {
                 isNext: false
             })
             return `${getLineupName(agent.self)}释放初级治愈，${getLineupName(agent.goal)}恢复40HP`
+        }
+    },
+    "垂死挣扎": {
+        name: "垂死挣扎",
+        type: SkillType.伤害技,
+        info: '对目标造成1.5倍伤害',
+        lv: 1,
+        mp: 20,
+        fn: function (agent, agentList, fn?) {
+            const damageData = new Damage(agent).result({
+                before: ((val) => {
+                    val.default_harm += Math.floor(val.default_harm * 0.5)
+                })
+            })
+            fn({
+                damage: damageData,
+                type: this.type,
+                target: [agent.goal],
+                isNext: false
+            })
+            return `${getLineupName(agent.self)} 进行垂死挣扎，对 ${getLineupName(agent.goal)} 造成 ${damageData.harm} 伤害。` + moreDamageInfo(damageData)
+        }
+    },
+    "治愈之光": {
+        name: "治愈之光",
+        type: SkillType.增益技,
+        info: '为目标挂上3回合治愈状态',
+        lv: 1,
+        mp: 20,
+        fn: function (agent, agentList, fn?) {
+            giveBuff(agent.goal, { name: "治愈", timer: 3 })
+            fn({
+                type: SkillType.增益技,
+                isNext: true
+            })
+            return `${getLineupName(agent.self)} 对 ${getLineupName(agent.goal)} 释放治愈之光。`
         }
     }
 };

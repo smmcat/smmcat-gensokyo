@@ -63,7 +63,7 @@ export const Monster = {
     },
     getMonsterAttributeData(monsterName: string, lv: number) {
         const monster = Monster.monsterTempData[monsterName]
-        if (!monster) return null   
+        if (!monster) return null
         const temp = { lv } as MonsterBaseAttribute & { lv: number }
         // 选择等级配置
         const lvScope = Object.keys(monsterBenchmark).reverse().find((item) => Number(item) < lv) || 10
@@ -74,14 +74,30 @@ export const Monster = {
         Object.keys(monster).forEach((i) => {
             temp[i] = monster[i]
             if (useBenchmark[i]) {
-                temp[i] += Math.floor((temp[i] * (useBenchmark[i] - 1) * (lv - 1)))
+                const upVal = Math.floor((temp[i] * (useBenchmark[i] - 1) * (lv - 1)))
+                if (upVal > 0) {
+                    temp[i] += upVal
+                } else {
+                    // 特殊对待的值
+                    switch (i) {
+                        case 'hit':
+                            temp[i] += 20 * (lv - 1)
+                            break;
+                        default:
+                            break;
+                    }
+                }
             }
         })
         return temp
     },
     /** 格式化怪物属性数据 */
     monsterAttributeTextFormat(monster: MonsterBaseAttribute & { lv: number }) {
-        const { name, type, lv, hp, maxHp, mp, maxMp, atk, def, chr, evasion, hit, ghd, speed, info, pic } = monster
+        const { name, type, lv, hp, maxHp, mp, maxMp, atk, def, chr, evasion, hit, ghd, speed, info, pic, giveProps } = monster
+        const propsList = giveProps
+            .filter((item) => item.lv ? lv >= item.lv : true)
+            .map(item => item.name)
+
         const attributeText = (pic ? h.image(pic) + '\n' : '') +
             `Lv.${lv}【${name}】\n\n` +
             `【怪物类型】${type}\n` +
@@ -90,10 +106,11 @@ export const Monster = {
             `【攻击力】${atk}\n` +
             `【防御力】${def}\n` +
             `【闪避值】${evasion}\n` +
-            `【命中值】${hit}\n` +
             `【速度值】${speed}\n` +
+            `【命中率】${(hit / 10 + 100).toFixed(1)}%\n` +
             `【暴击率】${(chr / 10).toFixed(1)}%\n` +
             `【爆伤倍率】${(ghd * 100).toFixed(0)}%` +
+            (propsList?.length ? `\n【概率掉落道具】` + propsList.join('、') : '') +
             (info ? '\n\n' + info : '')
         return attributeText
     }

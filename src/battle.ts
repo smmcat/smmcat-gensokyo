@@ -3,9 +3,11 @@ import { Config } from ".";
 import { User, UserBaseAttribute } from "./users";
 import { Monster } from "./monster";
 import { Damage, giveCure, giveDamage, moreDamageInfo } from "./damage";
-import { generateHealthDisplay } from "./utlis";
-import { skillFn, SkillType, UseAtkType } from "./skillFn";
-import { MonsterBaseAttribute } from "./data/initMonster";
+import { generateHealthDisplay, random } from "./utlis";
+import { skillFn, SkillType, UseAtkType, UserOccupation } from "./data/skillFn";
+import { MonsterBaseAttribute, MonsterOccupation } from "./data/initMonster";
+import { settlementBuff } from "./data/buffFn";
+import { GensokyoMap } from "./map";
 
 declare module 'koishi' {
     interface Tables {
@@ -42,6 +44,8 @@ export type BattleAttribute = {
     userId?: string
     /** 类型 */
     type: '玩家' | '怪物',
+    /** 自有类型 */
+    selfType: UserOccupation | MonsterOccupation,
     /** 血量 */
     hp: number,
     /** 最大血量 */
@@ -67,30 +71,38 @@ export type BattleAttribute = {
     /** 出手速度 */
     speed: number,
     /** 临时增益状态 */
-    gain: {
-        /** 临时增益-最大血量 */
-        maxHp: number,
-        /** 临时增益-最大蓝量 */
-        maxMp: number,
-        /** 临时增益-攻击力 */
-        atk: number,
-        /** 临时增益-防御力 */
-        def: number,
-        /** 临时增益-暴击率 */
-        chr: number,
-        /** 临时增益-暴击伤害 */
-        ghd: number,
-        /** 临时增益-闪避值 */
-        evasion: number,
-        /** 临时增益-命中值 */
-        hit: number,
-        /** 临时增益-出手速度 */
-        speed: number
-    },
+    gain: BuffGain,
     /** 滞留状态 */
-    buff: { name: string, time: number }[],
+    buff: { [keys: string]: { name: string, timer: number } },
     /** 持有技能 */
-    fn?: []
+    fn?: { name: string, prob: number }[],
+    /** 拓展数据 */
+    expand: { [keys: string]: any }
+}
+
+export type BuffGain = {
+    /** 临时增益-最大血量 */
+    maxHp?: number,
+    /** 临时增益-最大蓝量 */
+    maxMp?: number,
+    /** 临时增益-攻击力 */
+    atk?: number,
+    /** 临时增益-防御力 */
+    def?: number,
+    /** 临时增益-暴击率 */
+    chr?: number,
+    /** 临时增益-暴击伤害 */
+    ghd?: number,
+    /** 临时增益-闪避值 */
+    evasion?: number,
+    /** 临时增益-命中值 */
+    hit?: number,
+    /** 临时增益-出手速度 */
+    speed?: number
+    /** 是否眩晕 */
+    dizziness?: boolean
+    /** 是否混乱 */
+    chaos?: boolean
 }
 
 /** 最后战斗状态 */
@@ -102,12 +114,22 @@ type LastPlay = {
     }
 }
 
+type InvitationTemp = {
+    [keys: string]: {
+        time: number,
+        for: string,
+        playName: string,
+        seen: boolean
+    }
+}
+
 export const BattleData = {
     config: {} as Config,
     ctx: {} as Context,
     historyTemp: {} as BattleHistory,
     lastPlay: {} as LastPlay,
     teamTemp: {} as TeamData,
+    invitationTemp: {} as InvitationTemp,
     init(config: Config, ctx: Context) {
         this.config = config
         this.ctx = ctx
@@ -124,6 +146,7 @@ export const BattleData = {
     isTeam(session: Session) {
         return !!BattleData.teamTemp[session.userId]
     },
+    /** 玩家是否在队伍中 通过UserId */
     isTeamByUserId(userId: string) {
         return !!BattleData.teamTemp[userId]
     },
@@ -138,11 +161,113 @@ export const BattleData = {
         const _userId = BattleData.teamTemp[userId].for
         Object.keys(BattleData.teamTemp).forEach((item) => {
             if (BattleData.teamTemp[item].for == _userId) {
-                // 组队战斗
                 teamList.push(User.getUserAttributeByUserId(item))
             }
         })
         return teamList
+    },
+    /** 创建队伍 */
+    async creatTeam(session: Session) {
+        const { userId } = session
+        if (BattleData.isTeamByUserId(userId)) {
+            await session.send(`${User.getUserName(userId)}:你已经加入了${BattleData.teamTemp[userId].for}的队伍，需要退出才可以重新创建！`)
+            return
+        }
+        BattleData.teamTemp[userId] = {
+            for: userId,
+            identity: '队长'
+        }
+        await session.send('创建队伍成功！发送 /队伍邀请 昵称 \n可对周围对应昵称玩家进行组队邀请！')
+    },
+    /** 邀请加入队伍 */
+    async invitationTeam(session: Session, playName: string) {
+        const { userId } = session
+        if (!BattleData.isTeamByUserId(userId)) {
+            await session.send(`你还没有创建队伍，请发送 /队伍创建 创建队伍吧！`)
+            return
+        }
+        const teamInfo = BattleData.teamTemp[userId]
+        if (teamInfo.identity !== '队长') {
+            await session.send(`你不是小队队长，无法邀请玩家加入！`)
+            return
+        }
+
+        const nearUser = GensokyoMap.nearbyPlayersByUserId(userId)
+        const invitationUser = nearUser.find((item) => item.playName == playName)
+        if (!invitationUser) {
+            await session.send(`玩家${playName}不在你附近，邀请失败！`)
+            return
+        }
+        if (BattleData.isTeamByUserId(invitationUser.userId)) {
+            await session.send(`对方已经组队，或者已经在队伍中！`)
+            return
+        }
+        BattleData.invitationTemp[invitationUser.userId] = {
+            time: Date.now(),
+            for: userId,
+            playName: User.getUserName(userId),
+            seen: false
+        }
+        await session.send(`已经发送邀请，等待TA的 /队伍加入 操作`)
+    },
+    /** 加入队伍 */
+    async joinTeam(session: Session) {
+        const { userId } = session
+        if (!BattleData.invitationTemp[userId]) {
+            await session.send('当前最后记录中无人邀请你加入队伍...')
+            return
+        }
+        if (BattleData.isTeamByUserId(userId)) {
+            await session.send(`你已经在队伍中，无法再次加入，若需要加入请发送 /队伍退出`)
+            return
+        }
+        const invInfo = BattleData.invitationTemp[userId]
+        if (Date.now() - invInfo.time > 3600000) {
+            await session.send(`${invInfo.playName}的邀请队伍请求已超时！`)
+            delete BattleData.invitationTemp[userId]
+            return
+        }
+        if (BattleData.teamListByUser(invInfo.for).length >= 4) {
+            await session.send(`${invInfo.playName}的队伍人员已满！无法加入`)
+            return
+        }
+        BattleData.teamTemp[userId] = {
+            for: invInfo.for,
+            identity: '队员'
+        }
+        await session.send(`加入${invInfo.playName}的队伍成功！\n若后续需要退出可发送 /队伍退出`)
+    },
+    /** 退出队伍 */
+    async exitTeam(session: Session) {
+        const { userId } = session
+        if (!BattleData.isTeamByUserId(userId)) {
+            await session.send('你还没有加入任何队伍！')
+            return
+        }
+        if (BattleData.teamTemp[userId].identity == '队长') {
+            await session.send('你是小队队长，无法退出。若要解散队伍，请发送 /队伍解散')
+            return
+        }
+        const teamName = User.getUserName(BattleData.teamTemp[userId].for)
+        delete BattleData.teamTemp[userId]
+        await session.send(`退出${teamName}的小队成功！`)
+    },
+    /** 解散队伍 */
+    async dissolveTeam(session: Session) {
+        const { userId } = session
+        if (!BattleData.isTeamByUserId(userId)) {
+            await session.send('你还没有加入任何队伍！')
+            return
+        }
+        if (BattleData.teamTemp[userId].identity == '队员') {
+            await session.send('你不是小队队长，无法解散。')
+            return
+        }
+        const team = BattleData.teamListByUser(userId)
+        team.forEach((item) => {
+            delete BattleData.teamTemp[item.userId]
+        })
+        await session.send('操作成功，已经解散你创建的小队。')
     },
     /** 创建战斗-与怪物 */
     async createBattleByMonster(session: Session, goal: { name: string, lv: number }[]) {
@@ -261,9 +386,18 @@ export const BattleData = {
     battleSituationTextFormat(team: { self: BattleAttribute[], goal: BattleAttribute[], isPK?: boolean }) {
         const selfTemp = []
         const goalTemp = []
+
+        // 状态信息
+        const getBuffTemplate = (agent: BattleAttribute) => {
+            const dict = { 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹' }
+            const buffInfo = Object.keys(agent.buff).map((item) => {
+                return `${agent.buff[item].name}${dict[agent.buff[item].timer] || '⁺'}`
+            })
+            return buffInfo.length ? '(' + buffInfo.join(' ') + ')' : ''
+        }
         team.self.forEach((item) => {
             if (item.hp > 0) {
-                selfTemp.push(`lv.${item.lv}[${item.name}]:\n` +
+                selfTemp.push(`lv.${item.lv}[${item.name}]${getBuffTemplate(item)}:\n` +
                     `${generateHealthDisplay(item.hp, item.maxHp + item.gain.maxHp)}(${item.hp}/${item.maxHp + item.gain.maxHp})` +
                     `\nMP:${item.mp}/${item.maxMp + item.gain.maxMp}`)
             } else {
@@ -272,7 +406,7 @@ export const BattleData = {
         })
         team.goal.forEach((item) => {
             if (item.hp > 0) {
-                goalTemp.push(`lv.${item.lv}[${item.name}]:\n` +
+                goalTemp.push(`lv.${item.lv}[${item.name}]${getBuffTemplate(item)}:\n` +
                     `${generateHealthDisplay(item.hp, item.maxHp + item.gain.maxHp)}(${item.hp}/${item.maxHp + item.gain.maxHp})` +
                     `\nMP:${item.mp}/${item.maxMp + item.gain.maxMp}`)
             } else {
@@ -318,92 +452,122 @@ export const BattleData = {
         const msgList = []
 
         for (const agent of allAgentList) {
+
+            // 状态结算
+            const buffMsg = settlementBuff(agent)
+            buffMsg && msgList.push(buffMsg)
+
             // 死亡单位跳过回合
-            if (agent.hp <= 0) continue;
-
-            // 过滤存活目标
-            let lifeGoalList = [] as BattleAttribute[]
-            let lifeSelfList = [] as BattleAttribute[]
-            if (agent.for == 'self') {
-                lifeGoalList = currentBattle.goal.filter((item) => item.for == 'goal' && item.hp > 0)
-                lifeSelfList = currentBattle.self.filter((item) => item.for == 'self' && item.hp > 0)
-            } else {
-                lifeGoalList = currentBattle.self.filter((item) => item.for == 'self' && item.hp > 0)
-                lifeSelfList = currentBattle.goal.filter((item) => item.for == 'goal' && item.hp > 0)
-            }
-            // 无目标
-            if (!lifeGoalList.length) continue;
-
-            // 准备挑选对手
-            let selectGoal = {} as BattleAttribute
-            let isMy = false // 是否为本人操作
-            let funType = '普攻' // 攻击的方式
-            if (agent.type == '玩家' && agent.userId == session.userId) {
-                isMy = true
-                funType = atkType;
-                selectGoal = lifeGoalList.find((item) => item.name == select) ||
-                    lifeGoalList[Math.floor(Math.random() * lifeGoalList.length)]
-            }
-            // 其他玩家操作
-            else if (agent.type == '玩家') {
-                selectGoal = lifeGoalList[Math.floor(Math.random() * lifeGoalList.length)]
-            }
-            // 怪物操作
-            else {
-                selectGoal = lifeGoalList[Math.floor(Math.random() * lifeGoalList.length)]
+            if (agent.hp <= 0) {
+                if (agent.type == '玩家' && !User.userTempData[agent.userId]?.isDie) {
+                    User.userTempData[agent.userId].hp = 0
+                    User.userTempData[agent.userId].isDie = true
+                }
+                continue;
             }
 
-            // 普通攻击
-            const noralAtk = () => {
-                const damageInfo = new Damage({ self: agent, goal: selectGoal }).result()
-                giveDamage(agent, selectGoal, damageInfo)
-                msgList.push(`${getLineupName(agent)} 使用普攻攻击了 ${getLineupName(selectGoal)}，`
-                    + `造成了${damageInfo.harm}伤害。` + moreDamageInfo(damageInfo)
-                )
-            }
-            if (funType == '普攻') {
-                noralAtk()
-            } else {
-                // 尝试释放技能
-                if (skillFn[atkType]) {
-                    // 是否为(治疗|增益)技能 特殊处理
-                    if ([SkillType.治疗技, SkillType.增益技].includes(skillFn[atkType].type)) {
-                        selectGoal = lifeSelfList.find((item) => item.name == select) || agent
+            // 是否晕眩
+            if (!agent.gain.dizziness) {
+                // 过滤存活目标
+                let lifeGoalList = [] as BattleAttribute[]
+                let lifeSelfList = [] as BattleAttribute[]
+                if (agent.for == 'self') {
+                    lifeGoalList = currentBattle.goal.filter((item) => item.for == 'goal' && item.hp > 0)
+                    lifeSelfList = currentBattle.self.filter((item) => item.for == 'self' && item.hp > 0)
+                } else {
+                    lifeGoalList = currentBattle.self.filter((item) => item.for == 'self' && item.hp > 0)
+                    lifeSelfList = currentBattle.goal.filter((item) => item.for == 'goal' && item.hp > 0)
+                }
+                // 无目标
+                if (!lifeGoalList.length) continue;
+
+                // 准备挑选对手
+                let selectGoal = {} as BattleAttribute
+                let isMy = false // 是否为本人操作
+                let funType = '普攻' // 攻击的方式
+
+                // 是否混乱
+                if (!agent.gain.chaos) {
+                    if (agent.type == '玩家' && agent.userId == session.userId) {
+                        isMy = true;
+                        funType = atkType;
+                        selectGoal = lifeGoalList.find((item) => item.name == select) ||
+                            lifeGoalList[Math.floor(Math.random() * lifeGoalList.length)]
                     }
-                    const selectFn = skillFn[atkType]
-                    // 如果MP消耗足够
-                    if (selectFn.mp == 0 || agent.mp - selectFn.mp >= 0) {
-                        agent.mp -= selectFn.mp
-                        let isNext = false
-                        const fnMsg = selectFn.fn({ self: agent, goal: selectGoal },
-                            { selfList: lifeSelfList, goalList: lifeGoalList }, (val) => {
-                                switch (val.type) {
-                                    case SkillType.伤害技:
-                                        val.target.map((goal) => {
-                                            giveDamage(agent, goal, val.damage)
-                                        })
-                                        break;
-                                    case SkillType.治疗技:
-                                        val.target.map((goal) => {
-                                            giveCure(goal, val.value)
-                                        })
-                                        break;
-                                    case SkillType.释放失败:
-                                        val.err && session.send(val.err)
-                                    default:
-                                        break;
-                                }
-                                isNext = val.isNext
-                            })
-                        fnMsg && msgList.push(fnMsg)
-                        isNext && noralAtk()
-                    } else {
-                        await session.send(`MP不足，释放失败！`)
-                        noralAtk()
+                    // 其他玩家操作
+                    else if (agent.type == '玩家') {
+                        selectGoal = lifeGoalList[Math.floor(Math.random() * lifeGoalList.length)]
+                    }
+                    // 怪物操作
+                    else {
+                        selectGoal = lifeGoalList[Math.floor(Math.random() * lifeGoalList.length)]
+                        // 概率释放技能
+                        if (random(0, 10) < 4 && agent.fn?.length) {
+                            funType = getSkillFn(agent.fn)
+                        }
                     }
                 } else {
-                    await session.send(`未持有该技能或者该技能不存在，释放失败！`)
+                    const fliteMyList = allAgentList.filter((item) => item.name !== agent.name && item.hp > 0)
+                    if (!fliteMyList.length) continue;
+                    selectGoal = fliteMyList[Math.random() * fliteMyList.length]
+                }
+
+                // 普通攻击
+                const noralAtk = () => {
+                    const damageInfo = new Damage({ self: agent, goal: selectGoal }).result()
+                    giveDamage(agent, selectGoal, damageInfo)
+                    msgList.push(`${getLineupName(agent)} 使用普攻攻击了 ${getLineupName(selectGoal)}，`
+                        + `造成了${damageInfo.harm}伤害。` + moreDamageInfo(damageInfo)
+                    )
+                }
+                if (funType == '普攻') {
                     noralAtk()
+                } else {
+                    // 尝试释放技能
+                    if (skillFn[funType]) {
+                        // 是否为(治疗|增益)技能 特殊处理
+                        let _selectGoal = selectGoal
+                        if ([SkillType.治疗技, SkillType.增益技].includes(skillFn[funType].type)) {
+                            _selectGoal = lifeSelfList.find((item) => item.name == select) || agent
+                        }
+                        const selectFn = skillFn[funType]
+                        // 如果MP消耗足够
+                        if (selectFn.mp == 0 || agent.mp - selectFn.mp >= 0) {
+                            agent.mp -= selectFn.mp
+                            let isNext = false
+                            const fnMsg = selectFn.fn({ self: agent, goal: _selectGoal },
+                                { selfList: lifeSelfList, goalList: lifeGoalList }, (val) => {
+                                    switch (val.type) {
+                                        case SkillType.伤害技:
+                                            val.target.map((goal) => {
+                                                giveDamage(agent, goal, val.damage)
+                                            })
+                                            break;
+                                        case SkillType.治疗技:
+                                            val.target.map((goal) => {
+                                                giveCure(goal, val.value)
+                                            })
+                                            break;
+                                        case SkillType.增益技:
+                                            isMy && val.err && session.send(val.err)
+                                            break;
+                                        case SkillType.释放失败:
+                                            isMy && val.err && session.send(val.err)
+                                        default:
+                                            break;
+                                    }
+                                    isNext = val.isNext
+                                })
+                            fnMsg && msgList.push(fnMsg)
+                            isNext && noralAtk()
+                        } else {
+                            isMy && await session.send(`MP不足，释放失败！`)
+                            noralAtk()
+                        }
+                    } else {
+                        isMy && await session.send(`未持有该技能或者该技能不存在，释放失败！`)
+                        noralAtk()
+                    }
                 }
             }
         }
@@ -447,8 +611,11 @@ export const BattleData = {
         }
         // 同步状态
         const aynchronize = (agent: BattleAttribute) => {
-            User.userTempData[agent.userId].hp = agent.hp
+            User.userTempData[agent.userId].hp = agent.hp > 0 ? agent.hp : 0
             User.userTempData[agent.userId].mp = agent.mp
+            if (User.userTempData[agent.userId].hp <= 0) {
+                User.userTempData[agent.userId].isDie = true
+            }
         }
         if (tempData.isPK) {
             if (overInfo.win == 'self') {
@@ -456,10 +623,6 @@ export const BattleData = {
                 for (const agent of allList) {
                     aynchronize(agent)
                     if (agent.for == 'self') {
-                        if (agent.hp <= 0) {
-                            User.userTempData[agent.userId].hp = 0
-                            User.userTempData[agent.userId].isDie = true
-                        }
                         await User.giveExp(agent.userId, 20, async (val) => await msg(val))
                         await User.giveMonetary(agent.userId, 5)
                     }
@@ -469,10 +632,6 @@ export const BattleData = {
                 for (const agent of allList) {
                     aynchronize(agent)
                     if (agent.for == 'goal') {
-                        if (agent.hp <= 0) {
-                            User.userTempData[agent.userId].hp = 0
-                            User.userTempData[agent.userId].isDie = true
-                        }
                         await User.giveExp(agent.userId, 20, async (val) => await msg(val))
                         await User.giveMonetary(agent.userId, 5)
                     }
@@ -483,20 +642,42 @@ export const BattleData = {
             let val = 0
             // 获得怪物货币总值
             let monetary = 0
+            let props = [] as { name: string, val: number }[]
             const monsterName = tempData.goal.filter((item) => item.type == '怪物').map(i => ({ name: i.name, lv: i.lv }))
             monsterName.forEach((item) => {
                 const monster = Monster.monsterTempData[item.name]
                 if (monster) {
                     val += Math.floor(monster.giveExp + (monster.giveExp * (item.lv - 1) * 0.2))
                     monetary += Math.floor(monster.giveMonetary + (monster.giveExp * (item.lv - 1) * 0.1))
+                    // 是否存在掉落奖励？
+                    monster.giveProps?.forEach((propsItem) => {
+                        if (item.lv >= (propsItem.lv || 1) && random(0, 100) < propsItem.radomVal) {
+                            props.push({
+                                name: propsItem.name,
+                                val: propsItem.const ? propsItem.val : random(1, propsItem.val)
+                            })
+                        }
+                    })
                 }
             })
-            await session.send(`小队获得${val}EXP、${monetary}货币！`)
+
             for (const agent of selfList) {
                 aynchronize(agent)
                 if (overInfo.win == 'self') {
+                    await session.send(`小队获得${val}EXP、${monetary}货币！`)
                     await User.giveExp(agent.userId, val, async (val) => await msg(val))
                     await User.giveMonetary(agent.userId, monetary)
+                    props.length && await User.giveProps(agent.userId, props, async (val) => {
+                        const propsDict = {}
+                        val.currentProps.forEach((item) => {
+                            if (!propsDict[item.name]) propsDict[item.name] = 0
+                            propsDict[item.name]++
+                        })
+                        const msg = Object.keys(propsDict).map((item) => {
+                            return `${item} ${propsDict[item]}个`
+                        }).join('\n')
+                        await session.send(`${agent.name}在战斗中获得：` + msg)
+                    })
                 }
             }
         }
@@ -506,6 +687,19 @@ export const BattleData = {
 /**  获取阵容角色名 */
 export function getLineupName(agent: BattleAttribute) {
     return `[${agent.type}]${agent.name}`
+}
+
+export function getSkillFn(fnList: { name: string; prob: number }[]): string {
+    const totalProb = fnList.reduce((sum, item) => sum + item.prob, 0);
+    const random = Math.random() * totalProb;
+    let currentProb = 0;
+    for (const item of fnList) {
+        currentProb += item.prob;
+        if (random < currentProb) {
+            return item.name;
+        }
+    }
+    return fnList[fnList.length - 1].name;
 }
 
 /** 初始化战斗属性-用户 */
@@ -521,6 +715,7 @@ function initBattleAttribute(data: UserBaseAttribute | MonsterBaseAttribute): Ba
             name: userData.playName,
             lv: userData.lv,
             type: '玩家',
+            selfType: userData.type,
             hp: userData.hp,
             maxHp: userData.maxHp,
             mp: userData.mp,
@@ -542,10 +737,13 @@ function initBattleAttribute(data: UserBaseAttribute | MonsterBaseAttribute): Ba
                 ghd: 0,
                 evasion: 0,
                 hit: 0,
-                speed: 0
+                speed: 0,
+                chaos: false,
+                dizziness: false
             },
-            buff: [],
-            fn: []
+            buff: {},
+            fn: [],
+            expand: {}
         } as BattleAttribute
         return temp
     } else {
@@ -554,6 +752,7 @@ function initBattleAttribute(data: UserBaseAttribute | MonsterBaseAttribute): Ba
         const temp = {
             name: monsterData.name,
             type: '怪物',
+            selfType: monsterData.type,
             lv: monsterData.lv,
             hp: monsterData.hp,
             maxHp: monsterData.maxHp,
@@ -576,10 +775,13 @@ function initBattleAttribute(data: UserBaseAttribute | MonsterBaseAttribute): Ba
                 ghd: 0,
                 evasion: 0,
                 hit: 0,
-                speed: 0
+                speed: 0,
+                chaos: false,
+                dizziness: false
             },
-            buff: [],
-            fn: []
+            buff: {},
+            fn: monsterData.fn ? JSON.parse(JSON.stringify(monsterData.fn)) : [],
+            expand: {}
         } as BattleAttribute
         return temp
     }

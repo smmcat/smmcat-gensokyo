@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-smmcat-gensokyo",
   "description": "名为《幻想乡》的文字冒险游戏",
-  "version": "0.0.14",
+  "version": "0.0.24",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "files": [

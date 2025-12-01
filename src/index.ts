@@ -5,7 +5,7 @@ import { User } from './users';
 import { Monster } from './monster';
 import { BattleData } from './battle';
 import { random } from './utlis';
-import { skillFn } from './skillFn';
+import { skillFn } from './data/skillFn';
 import { Props } from './props';
 export const name = 'smmcat-gensokyo'
 
@@ -141,7 +141,6 @@ export function apply(ctx: Context, config: Config) {
     .action(async ({ session }) => {
       const userData = await User.getUserAttribute(session)
       if (!userData) return
-
       GensokyoMap.initUserPoistion(session, userData)
       const query = {
         user: GensokyoMap.userCurrentLoal[session.userId],
@@ -156,12 +155,27 @@ export function apply(ctx: Context, config: Config) {
   ctx
     .command('幻想乡/个人属性')
     .action(async ({ session }) => {
+      const userData = await User.getUserAttribute(session)
+      if (!userData) return
+      GensokyoMap.initUserPoistion(session, userData)
       return `您的属性如下：\n` + User.userAttributeTextFormat(session.userId)
+    })
+
+  ctx
+    .command('幻想乡/个人道具')
+    .action(async ({ session }) => {
+      const userData = await User.getUserAttribute(session)
+      if (!userData) return
+      GensokyoMap.initUserPoistion(session, userData)
+      return await Props.getPropsDataByUserId(session.userId)
     })
 
   ctx
     .command('幻想乡/个人信息').userFields(['id'])
     .action(async ({ session }) => {
+      const userData = await User.getUserAttribute(session)
+      if (!userData) return
+      GensokyoMap.initUserPoistion(session, userData)
       const [data] = await ctx.database.get('monetary', { uid: session.user.id })
       return `[${User.userTempData[session.userId].playName}]：您当前货币为：${data?.value || 0}个`
     })
@@ -181,6 +195,19 @@ export function apply(ctx: Context, config: Config) {
       if (!result) return `没有找到该怪物信息...`
       return Monster.monsterAttributeTextFormat(result)
     })
+
+  // ctx
+  //   .command('给我药')
+  //   .action(async ({ session }) => {
+  //     await session.send('稍等...')
+  //     await User.giveProps(session.userId, [{ name: '红药', val: 99999 }], async (val) => {
+  //       if (val.err) {
+  //         session.send(val.err)
+  //         return
+  //       }
+  //       await session.send('获取成功')
+  //     })
+  //   })
 
   ctx
     .command('幻想乡/打怪遇敌 <goal>')
@@ -224,48 +251,48 @@ export function apply(ctx: Context, config: Config) {
   ctx
     .command('幻想乡/打怪pk <goal>')
     .action(async ({ session }, goal) => {
-      // 先看看自己属性
       const userData = await User.getUserAttribute(session)
       if (!userData) return
-      // 万一玩家自己都不知道自己在哪
       GensokyoMap.initUserPoistion(session, userData)
-
       if (User.isDie(session.userId)) {
         return `你已经阵亡，请发送 /补给 进行治疗。`
       }
-      // 难道打自己？
       if (!goal) {
         await session.send('请选择PK目标！')
         return
       }
-      // 喂喂喂，大笨蛋你在吗？
       const nearUserItem = GensokyoMap.nearbyPlayersByUserId(session.userId)
       const exist = nearUserItem.find((item) => item.playName == goal.trim())
-
       if (!exist) {
-        // 不在啊，告诉用户吧...
         await session.send(`PK失败，当前区域未存在【${goal}】玩家`)
         return
       }
-
       if (User.isDie(exist.userId)) {
         return `目标已经阵亡，请更换PK目标对象...`
       }
-
-      // 打之前应该先问问对方是否有队伍？
       if (BattleData.isTeamByUserId(exist.userId)) {
-        // 我打一群？真的假的
         const teamItem = BattleData.teamListByUser(exist.userId)
         await session.send(`对方有组队，您将扮演攻击方与对方队伍进行战斗。`)
         await BattleData.createBattleByUser(session, teamItem.map((item) => ({ userId: item.userId })))
       }
-      // 来场男子汉的战斗吧
       else {
         await session.send(`您将扮演攻击方与对方进行战斗。`)
         await BattleData.createBattleByUser(session, [{ userId: exist.userId }])
       }
     })
 
+  ctx
+    .command('幻想乡/道具使用 <props>')
+    .action(async ({ session }, props) => {
+      const userData = await User.getUserAttribute(session)
+      if (!userData) return
+      GensokyoMap.initUserPoistion(session, userData)
+
+      if (!props) {
+        return `未选择道具使用，请选择道具，例如：/道具使用 红药`
+      }
+      await Props.userProps(session, props)
+    })
   ctx
     .command('幻想乡/技能查询 <goal>')
     .action(async ({ session }, goal) => {
@@ -300,5 +327,45 @@ export function apply(ctx: Context, config: Config) {
 
       await User.setDatabaseUserAttribute(session.userId)
       return playName + `通过补给，目前已恢复HP和MP`
+    })
+
+  ctx
+    .command('幻想乡/队伍操作')
+
+  ctx
+    .command('队伍操作/队伍创建')
+    .action(async ({ session }) => {
+      await BattleData.creatTeam(session)
+    })
+  ctx
+    .command('队伍操作/队伍信息')
+    .action(async ({ session }) => {
+      const team = BattleData.teamListByUser(session.userId)
+      if (!team.length) return `你还没有队伍...`
+      return team.map((item) => `lv.${item.lv} ${item.playName} [${BattleData.teamTemp[item.userId].identity}]`).join('\n')
+    })
+  ctx
+    .command('队伍操作/队伍邀请 <playName>')
+    .action(async ({ session }, playName) => {
+      if (!playName) {
+        return `请选择需要邀请的玩家昵称。例如 /队伍邀请 夜夜酱`
+      }
+      await BattleData.invitationTeam(session, playName)
+    })
+
+  ctx
+    .command('队伍操作/队伍加入')
+    .action(async ({ session }) => {
+      await BattleData.joinTeam(session)
+    })
+  ctx
+    .command('队伍操作/队伍退出')
+    .action(async ({ session }) => {
+      await BattleData.exitTeam(session)
+    })
+  ctx
+    .command('队伍操作/队伍解散')
+    .action(async ({ session }) => {
+      await BattleData.dissolveTeam(session)
     })
 }

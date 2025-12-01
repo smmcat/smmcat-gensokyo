@@ -2,6 +2,10 @@ import { Context, Session } from "koishi";
 import { Config } from ".";
 import { userBenchmark } from "./data/benchmark";
 import { Props } from "./props";
+import { propsData } from "./data/initProps";
+import { BattleData } from "./battle";
+import { UserOccupation } from "./data/skillFn";
+import { monsterData } from "./data/initMonster";
 
 
 declare module 'koishi' {
@@ -10,11 +14,6 @@ declare module 'koishi' {
     }
 }
 
-export enum UserOccupation {
-    剑士 = "剑士",
-    法师 = "法师",
-    刺客 = "刺客"
-}
 
 /** 角色基础属性 */
 export type UserBaseAttribute = {
@@ -196,6 +195,10 @@ export const User = {
         })
         User.userTempData = temp
     },
+    /** 获取玩家名字 */
+    getUserName(userId: string) {
+        return User.userTempData[userId].playName || null
+    },
     /** 获取角色基础属性 */
     async getUserAttribute(session: Session) {
         if (!User.userTempData[session.userId]) {
@@ -260,7 +263,11 @@ export const User = {
             await session.send('名字重复，请更换一个名字。')
             return
         }
-        if (playname.trim().length > 6 || playname.trim().length < 1) {
+        if (Object.keys(monsterData).includes(playname?.trim())) {
+            await session.send('请不要设置怪物的名字！')
+            return
+        }
+        if (playname.trim().length < 6 || playname.trim().length > 1) {
             await session.send('名字长度有问题，要求小于 6个字，大于 1个字')
             return
         }
@@ -374,8 +381,8 @@ export const User = {
         userInfo.isDie = true;
         await User.setDatabaseUserAttribute(userId)
     },
-    /** 给予玩家恢复 */
-    async giveLife(userId: string, val?: number) {
+    /** 给予玩家复活 */
+    async giveLife(userId: string, val?: number, fn?: (updata: { currentHP: number }) => Promise<void>) {
         const userInfo = User.userTempData[userId]
         if (!val) {
             const { maxHp } = User.getUserAttributeByUserId(userId)
@@ -384,9 +391,10 @@ export const User = {
             userInfo.hp = val
         }
         await User.setDatabaseUserAttribute(userId)
+        fn && await fn({ currentHP: userInfo.hp })
     },
     /** 给予玩家血量或者蓝量 */
-    async giveHPMP(userId: string, value: { hp: number, mp: number }, fn?: (upData: {
+    async giveHPMP(userId: string, value: { hp?: number, mp?: number }, fn?: (upData: {
         currentHP: number,
         currentMP: number,
         err?: string
@@ -401,7 +409,55 @@ export const User = {
             })
             return
         }
+
+        // 如果玩家是在战斗中使用 优先补给战斗状态
+        if (BattleData.isBattleByUserId(userId)) {
+            const { goal, self } = BattleData.lastPlay[userId]
+            const agentAll = [...goal, ...self]
+            const agent = agentAll.find(item => item?.userId == userId)
+            if (!agent) return
+            if (agent.hp + (value.hp || 0) < agent.maxHp) {
+                agent.hp += value.hp || 0
+            } else {
+                agent.hp = agent.maxHp
+            }
+            if (agent.mp + (value.mp || 0) < agent.maxMp) {
+                agent.mp += value.mp || 0
+            } else {
+                agent.mp = agent.maxMp
+            }
+            fn && await fn({
+                currentHP: agent.hp,
+                currentMP: agent.mp
+            })
+            return
+        }
+
         const { maxHp, maxMp } = User.getUserAttributeByUserId(userId)
+        if (value.hp && !value.mp && userInfo.hp == maxHp) {
+            fn && await fn({
+                currentHP: userInfo.hp,
+                currentMP: userInfo.mp,
+                err: '当前血量已满，无需回复。'
+            })
+            return
+        }
+        if (value.mp && !value.hp && userInfo.mp == maxMp) {
+            fn && await fn({
+                currentHP: userInfo.hp,
+                currentMP: userInfo.mp,
+                err: '当前蓝量已满，无需回复。'
+            })
+            return
+        }
+        if (value.mp && value.hp && userInfo.mp == maxMp && userInfo.hp == maxHp) {
+            fn && await fn({
+                currentHP: userInfo.hp,
+                currentMP: userInfo.mp,
+                err: '当前状态全满，无需回复。'
+            })
+            return
+        }
         if (userInfo.hp + (value.hp || 0) < maxHp) {
             userInfo.hp += value.hp || 0
         } else {
@@ -435,6 +491,25 @@ export const User = {
         })
         await User.setDatabaseUserAttribute(userId)
     },
+    async lostPP(userId: string, value: number, fn?: (upData: {
+        currentPP: number,
+        err?: string
+    }) => Promise<void>) {
+        const userInfo = User.userTempData[userId]
+        if (!userInfo) return
+        if (userInfo.pp - value < 0) {
+            fn && await fn({
+                currentPP: userInfo.pp,
+                err: 'PP值不够，消耗失败！'
+            })
+            return
+        }
+        userInfo.pp -= value
+        fn && await fn({
+            currentPP: userInfo.pp
+        })
+        await User.setDatabaseUserAttribute(userId)
+    },
     /** 给予玩家货币 */
     async giveMonetary(userId: string, val: number, fn?: (upData: {
         val: number,
@@ -445,7 +520,7 @@ export const User = {
         if (bindData && val) {
             const [currentM] = await User.ctx.database.get('monetary', { uid: bindData.aid })
             await User.ctx.monetary.gain(bindData.aid, val)
-            fn && fn({ val, currentVal: currentM.value += val })
+            fn && await fn({ val, currentVal: currentM.value += val })
         }
     },
     /** 收取玩家货币 */
@@ -458,7 +533,7 @@ export const User = {
         if (bindData && val) {
             const [currentM] = await User.ctx.database.get('monetary', { uid: bindData.aid })
             if (currentM.value - val < 0) {
-                fn && fn({
+                fn && await fn({
                     val: Math.abs(val),
                     currentVal: currentM.value,
                     err: "余额不足！"
@@ -466,11 +541,75 @@ export const User = {
                 return
             }
             await User.ctx.monetary.cost(bindData.aid, val)
-            fn && fn({
+            fn && await fn({
                 val: Math.abs(val),
                 currentVal: currentM.value - val
             })
         }
+    },
+    /** 给予玩家指定道具 */
+    async giveProps(userId: string, props: { name: string, val?: number }[], fn?: (upData: {
+        currentProps: { name: string, val: number }[],
+        err?: string
+    }) => Promise<void>) {
+        const userProps = Props.userPorpsTemp[userId]
+        if (!userProps) return
+
+        const upProps = [] as { name: string, val: number }[]
+        for (const item of props) {
+            const propsItem = propsData[item.name]
+            if (!propsData[item.name]) continue
+            if (!userProps[item.name]) {
+                userProps[item.name] = {
+                    name: propsItem.name,
+                    type: propsItem.type,
+                    value: 0
+                }
+            }
+            userProps[item.name].value += item.val || 1
+            upProps.push({ name: item.name, val: userProps[item.name].value })
+        }
+        await Props.setDatabasePropsData(userId)
+        fn && await fn({
+            currentProps: upProps
+        })
+    },
+    /** 去除玩家指定道具 */
+    async loseProps(userId: string, props: { name: string, val?: number }, fn?: (upData: {
+        currentProps: { name: string, val: number },
+        err?: string
+    }) => Promise<void>) {
+        const userProps = Props.userPorpsTemp[userId]
+        const propsItem = propsData[props.name]
+        if (!userProps) return
+        if (!propsItem) {
+            fn && await fn({
+                currentProps: { name: props.name, val: 0 },
+                err: '该道具信息不存在！'
+            })
+            return
+        }
+        if (!userProps[props.name]) {
+            userProps[props.name] = {
+                name: propsItem.name,
+                type: propsItem.type,
+                value: 0
+            }
+        }
+        if (userProps[props.name].value - (props.val || 1) < 0) {
+            fn && await fn({
+                currentProps: { name: props.name, val: userProps[props.name].value },
+                err: `道具数量不足！剩余${userProps[props.name].value}个。`
+            })
+            return
+        }
+
+        userProps[props.name].value -= props.val || 1
+        if (userProps[props.name].value == 0) delete userProps[props.name]
+        await Props.setDatabasePropsData(userId)
+        fn && await fn({
+            currentProps: { name: props.name, val: userProps[props.name]?.value || 0 }
+        })
     },
     /** 目标是否死亡 */
     isDie(userId: string) {

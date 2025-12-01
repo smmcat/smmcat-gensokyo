@@ -41,7 +41,26 @@ export type MonsterBaseAttribute = {
     /** 获得经验 */
     giveExp: number,
     /** 获得货币 */
-    giveMonetary: number
+    giveMonetary: number,
+    /** 概率获得道具 */
+    giveProps?: {
+        /** 道具名 */
+        name: string,
+        /** 获得概率 */
+        radomVal: number,
+        /** 最大获取数据 */
+        val?: number,
+        /** 掉落数量固定？ */
+        const?: boolean,
+        /** 怪物等级要求？ */
+        lv?: number
+    }[],
+    fn?: {
+        /** 技能名 */
+        name: string,
+        /** 触发概率 */
+        prob: number
+    }[]
 }
 
 export type MonsterTempData = {
@@ -67,11 +86,15 @@ export const monsterData: MonsterTempData = {
         chr: 50,
         csr: 0,
         evasion: 100,
-        hit: 1000,
+        hit: 0,
         ghd: 1.2,
         speed: 4,
         giveExp: 10,
-        giveMonetary: 2
+        giveMonetary: 2,
+        giveProps: [
+            { name: '红药', val: 3, radomVal: 30 }
+        ],
+        fn: [{ name: '垂死挣扎', prob: 1 }]
     },
     "小蜘蛛": {
         name: "小蜘蛛",
@@ -87,11 +110,14 @@ export const monsterData: MonsterTempData = {
         chr: 50,
         csr: 0,
         evasion: 150,
-        hit: 1000,
+        hit: 0,
         ghd: 1.2,
         speed: 4,
         giveExp: 12,
         giveMonetary: 2,
+        giveProps: [
+            { name: '蓝药', val: 3, radomVal: 30 }
+        ]
     },
     "dora": {
         name: "dora",
@@ -100,17 +126,92 @@ export const monsterData: MonsterTempData = {
         pic: "http://smmcat.cn/run/gensokyo/dora.png",
         hp: 88,
         maxHp: 88,
-        mp: 10,
-        maxMp: 10,
+        mp: 30,
+        maxMp: 30,
         atk: 20,
         def: 5,
         chr: 200,
         csr: 0,
         evasion: 200,
-        hit: 1000,
+        hit: 0,
         ghd: 1.2,
         speed: 4,
         giveExp: 15,
-        giveMonetary: 3
+        giveMonetary: 3,
+        giveProps: [
+            { name: '蓝药', val: 3, radomVal: 30 },
+            { name: '初级万能药', val: 2, radomVal: 90, const: true, lv: 5 }
+        ],
+        fn: [{ name: '治愈之光', prob: 1 }]
+    },
+    "琪露诺": {
+        name: "琪露诺",
+        type: MonsterOccupation.野怪,
+        info: '常常被称呼笨蛋的冰之妖精，有时也被叫⑨',
+        pic: "http://smmcat.cn/run/gensokyo/琪露诺.png",
+        hp: 100,
+        maxHp: 100,
+        mp: 40,
+        maxMp: 40,
+        atk: 22,
+        def: 5,
+        chr: 100,
+        csr: 0,
+        evasion: 100,
+        hit: -800,
+        ghd: 1.2,
+        speed: 4,
+        giveExp: 15,
+        giveMonetary: 3,
+        giveProps: [
+            { name: '初级复活卷轴', val: 1, radomVal: 50 }
+        ]
+    },
+    "大妖精": {
+        name: "大妖精",
+        type: MonsterOccupation.野怪,
+        info: '活泼好动且喜欢搞恶作剧的妖怪，常常与琪露诺一起溜达',
+        pic: "http://smmcat.cn/run/gensokyo/大妖精.png",
+        hp: 120,
+        maxHp: 120,
+        mp: 40,
+        maxMp: 40,
+        atk: 18,
+        def: 5,
+        chr: 100,
+        csr: 0,
+        evasion: 100,
+        hit: -400,
+        ghd: 1.2,
+        speed: 5,
+        giveExp: 15,
+        giveMonetary: 3,
+        giveProps: [
+            { name: '初级复活卷轴', val: 1, radomVal: 50 }
+        ]
+    },
+    "蓬莱山辉夜": {
+        name: "蓬莱山辉夜",
+        type: MonsterOccupation.野怪,
+        info: '永远与须臾的公主,隐居于永远亭的辉夜姬。 对于拥有无限光阴的蓬莱人而言,过去与未来都是无穷无尽的。',
+        pic: "http://smmcat.cn/run/gensokyo/蓬莱山辉夜.png",
+        hp: 120,
+        maxHp: 120,
+        mp: 70,
+        maxMp: 70,
+        atk: 26,
+        def: 2,
+        chr: 100,
+        csr: 0,
+        evasion: 200,
+        hit: 1000,
+        ghd: 1.5,
+        speed: 6,
+        giveExp: 20,
+        giveMonetary: 5,
+        giveProps: [
+            { name: '初级复活卷轴', val: 1, radomVal: 50 }
+        ],
+        fn: [{ name: '初级治愈', prob: 3 }, { name: '水炮', prob: 1 }]
     }
 }

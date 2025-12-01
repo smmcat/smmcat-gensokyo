@@ -134,6 +134,29 @@ class Damage {
     }
 }
 
+class BuffDamage {
+    goal: BattleAttribute
+    val: number
+    isRealHarm: boolean
+    constructor(val: number, goal: BattleAttribute, isRealHarm = false) {
+        this.goal = goal
+        this.val = val
+        this.isRealHarm = isRealHarm
+    }
+    giveDamage() {
+        if (this.isRealHarm) {
+            const val = this.goal.hp - this.val > 0 ? this.val : this.goal.hp
+            this.goal.hp -= val
+            return val
+        } else {
+            const def = (this.goal.def + this.goal.gain.def)
+            const val = (this.goal.hp + def) - this.val > 0 ? this.val - def : this.goal.hp
+            this.goal.hp -= val
+            return val
+        }
+    }
+}
+
 /** 给予目标伤害 */
 function giveDamage(self: BattleAttribute, goal: BattleAttribute, damage: DamageConfig) {
     if (goal.hp - damage.harm > 0) {
@@ -165,4 +188,4 @@ export function moreDamageInfo(damage: DamageConfig) {
         + (damage.isEvasion ? `（闪避成功！）` : '')
         + (damage.isBadDef ? `（未破防！）` : '')
 }
-export { Damage, giveDamage, giveCure }
+export { Damage, BuffDamage, giveDamage, giveCure }

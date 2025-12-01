@@ -62,7 +62,7 @@ export const monsterBenchmark: MonsterBenchmark = {
         def: 1.1,
         chr: 1.1,
         evasion: 1.1,
-        hit: 1.1,
+        hit: 1.08,
         ghd: 1.0,
         speed: 1.05
     },
@@ -75,7 +75,7 @@ export const monsterBenchmark: MonsterBenchmark = {
         def: 1.1,
         chr: 1.08,
         evasion: 1.08,
-        hit: 1.08,
+        hit: 1.06,
         ghd: 1.0,
         speed: 1.05
     },
@@ -88,7 +88,7 @@ export const monsterBenchmark: MonsterBenchmark = {
         def: 1.05,
         chr: 1.05,
         evasion: 1.05,
-        hit: 1.05,
+        hit: 1.04,
         ghd: 1.05,
         speed: 1.05
     }
