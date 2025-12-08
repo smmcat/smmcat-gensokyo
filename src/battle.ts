@@ -34,6 +34,8 @@ type TeamData = {
 }
 
 export type BattleAttribute = {
+    /** 唯一标识 */
+    id: number
     /** 阵容 */
     for?: 'self' | 'goal',
     /** 等级 */
@@ -103,6 +105,8 @@ export type BuffGain = {
     dizziness?: boolean
     /** 是否混乱 */
     chaos?: boolean
+    /** 伤害减免 */
+    reduction?: number
 }
 
 /** 最后战斗状态 */
@@ -441,6 +445,42 @@ export const BattleData = {
             }
         })
     },
+    /** 打怪逃跑 */
+    async battleEscape(session: Session) {
+        const currentBattle = BattleData.lastPlay[session.userId]
+        if (currentBattle.isPK) {
+            await session.send(`与玩家PK中途不能逃跑啊！`)
+            return
+        }
+        if (currentBattle.goal.some((item) => item.selfType == MonsterOccupation.BOSS)) {
+            await session.send(`与BOSS对战的中途不能逃跑啊！`)
+            return
+        }
+        const allAgentList = [...currentBattle.goal, ...currentBattle.self]
+        const losePrice = random(5, 10)
+        const isTeam = BattleData.isTeam(session)
+
+        // 同步数据
+        for (const agent of allAgentList) {
+            if (agent.type == '玩家') {
+                BattleData.aynchronize(agent)
+                await User.lostMonetary(agent.userId, losePrice)
+                await User.setDatabaseUserAttribute(agent.userId)
+            }
+        }
+        // 清理战场
+        BattleData.clearBattleData(session)
+        await session.send(isTeam ? `队伍在战斗中逃跑了，逃跑中均失去${losePrice}货币...` :
+            `您在战斗中逃跑了。逃跑途中失去${losePrice}货币...`)
+    },
+    /** 同步状态 */
+    aynchronize(agent: BattleAttribute) {
+        User.userTempData[agent.userId].hp = agent.hp > 0 ? agent.hp : 0
+        User.userTempData[agent.userId].mp = agent.mp
+        if (User.userTempData[agent.userId].hp <= 0) {
+            User.userTempData[agent.userId].isDie = true
+        }
+    },
     async play(session: Session, atkType: string, select?: string) {
         if (!BattleData.isBattle(session)) {
             await session.send('您并没有任何参与战斗。')
@@ -448,7 +488,8 @@ export const BattleData = {
         }
 
         const currentBattle = BattleData.lastPlay[session.userId]
-        const allAgentList = [...currentBattle.goal, ...currentBattle.self].sort((a, b) => b.speed - a.speed)
+        const allAgentList = [...currentBattle.goal, ...currentBattle.self].sort((a, b) =>
+            (b.speed + b.gain.speed) - (a.speed + a.gain.speed))
         const msgList = []
 
         for (const agent of allAgentList) {
@@ -507,7 +548,7 @@ export const BattleData = {
                         }
                     }
                 } else {
-                    const fliteMyList = allAgentList.filter((item) => item.name !== agent.name && item.hp > 0)
+                    const fliteMyList = allAgentList.filter((item) => item.id !== agent.id && item.hp > 0)
                     if (!fliteMyList.length) continue;
                     selectGoal = fliteMyList[Math.random() * fliteMyList.length]
                 }
@@ -661,10 +702,12 @@ export const BattleData = {
                 }
             })
 
+            if (overInfo.win == 'self') {
+                await session.send(`小队获得${val}EXP、${monetary}货币！`)
+            }
             for (const agent of selfList) {
                 aynchronize(agent)
                 if (overInfo.win == 'self') {
-                    await session.send(`小队获得${val}EXP、${monetary}货币！`)
                     await User.giveExp(agent.userId, val, async (val) => await msg(val))
                     await User.giveMonetary(agent.userId, monetary)
                     props.length && await User.giveProps(agent.userId, props, async (val) => {
@@ -711,6 +754,7 @@ function initBattleAttribute(data: UserBaseAttribute | MonsterBaseAttribute): Ba
         // 处理用户数据
         const userData = data as UserBaseAttribute
         const temp = {
+            id: Date.now(),
             userId: userData.userId,
             name: userData.playName,
             lv: userData.lv,
@@ -739,7 +783,8 @@ function initBattleAttribute(data: UserBaseAttribute | MonsterBaseAttribute): Ba
                 hit: 0,
                 speed: 0,
                 chaos: false,
-                dizziness: false
+                dizziness: false,
+                reduction: 0
             },
             buff: {},
             fn: [],
@@ -750,6 +795,7 @@ function initBattleAttribute(data: UserBaseAttribute | MonsterBaseAttribute): Ba
         // 处理怪物数据
         const monsterData = data as MonsterBaseAttribute & { lv: number }
         const temp = {
+            id: Date.now(),
             name: monsterData.name,
             type: '怪物',
             selfType: monsterData.type,
@@ -777,7 +823,8 @@ function initBattleAttribute(data: UserBaseAttribute | MonsterBaseAttribute): Ba
                 hit: 0,
                 speed: 0,
                 chaos: false,
-                dizziness: false
+                dizziness: false,
+                reduction: 0
             },
             buff: {},
             fn: monsterData.fn ? JSON.parse(JSON.stringify(monsterData.fn)) : [],

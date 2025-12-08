@@ -1,11 +1,13 @@
 import { BattleAttribute, getLineupName } from "../battle";
 import { Damage, DamageConfig, moreDamageInfo } from "../damage";
+import { getFreeList, random } from "../utlis";
 import { giveBuff } from "./buffFn";
 
 export enum SkillType {
     释放失败 = '释放失败',
     伤害技 = '伤害技',
     增益技 = '增益技',
+    减益技 = '减益技',
     治疗技 = '治疗技',
     奥义 = '奥义'
 }
@@ -45,6 +47,14 @@ interface BuffSkillParams {
     err?: string
 }
 
+interface DeBuffSkillParams {
+    type: SkillType.减益技;
+    /** 是否衔接普攻 */
+    isNext: boolean;
+    /** 错误提示 */
+    err?: string
+}
+
 interface UltimateSkillParams {
     type: SkillType.奥义,
     /** 是否衔接普攻 */
@@ -64,7 +74,8 @@ type SkillParams =
     | BuffSkillParams
     | HealSkillParams
     | UltimateSkillParams
-    | ErrSkillParams;
+    | ErrSkillParams
+    | DeBuffSkillParams
 
 interface SkillConfig<T extends SkillType = SkillType> {
     /** 技能名 */
@@ -246,6 +257,85 @@ export const skillFn: SkillFn = {
                 isNext: true
             })
             return `${getLineupName(agent.self)} 对 ${getLineupName(agent.goal)} 释放治愈之光。`
+        }
+    },
+    "毒之牙": {
+        name: "毒之牙",
+        type: SkillType.伤害技,
+        info: '对敌方最多3个目标造成攻击力1.2倍伤害，造成伤害时有50%概率为敌方附加3回合中毒状态。',
+        lv: 1,
+        mp: 40,
+        fn: function (agent, agentList, fn?) {
+            const goalList = getFreeList(agentList.goalList).slice(0, 3).filter(i => i) as BattleAttribute[]
+            const msgList = [`${getLineupName(agent.self)}释放了群体技能毒之牙！`]
+            goalList.forEach((goal) => {
+                let useBuff = false
+                const damageData = new Damage({ self: agent.self, goal }).result({
+                    before: ((val) => {
+                        val.default_harm += Math.floor(val.default_harm * 0.2)
+                    }),
+                    beforEnd: ((val) => {
+                        if (val.harm && random(0, 10) < 5) {
+                            useBuff = true
+                            giveBuff(goal, { name: "中毒", timer: 3 })
+                        }
+                    })
+                })
+                fn({
+                    type: SkillType.伤害技,
+                    damage: damageData,
+                    isNext: false,
+                    target: [goal]
+                })
+                msgList.push(`- 对 ${getLineupName(goal)} 造成 ${damageData.harm} 伤害。${useBuff ? '(中毒)' : ''}` +
+                    moreDamageInfo(damageData))
+            })
+            return msgList.join('\n')
+        }
+    },
+    "恐怖催眠术": {
+        name: "恐怖催眠术",
+        type: SkillType.伤害技,
+        info: '对单个目标造成(攻击1.5倍+自身命中值10%)伤害，造成伤害有60%概率使其晕眩2回合。',
+        lv: 1,
+        mp: 40,
+        fn: function (agent, agentList, fn?) {
+            let useBuff = false
+            const damageData = new Damage(agent).result({
+                before: ((val) => {
+                    val.default_harm += Math.floor(val.default_harm * 0.2) +
+                        Math.floor((val.agent.self.hit + val.agent.self.gain.hit) * 0.1)
+                }),
+                beforEnd: ((val) => {
+                    if (val.harm && random(0, 10) < 6) {
+                        useBuff = true
+                        giveBuff(agent.goal, { name: "晕眩", timer: 3 })
+                    }
+                })
+            })
+            fn({
+                type: SkillType.伤害技,
+                damage: damageData,
+                isNext: false,
+                target: [agent.goal]
+            })
+            return `${getLineupName(agent.self)} 发动恐怖催眠术！对 ${getLineupName(agent.goal)} 造成 ${damageData.harm} 伤害。${useBuff ? '(晕眩)' : ''}` +
+                moreDamageInfo(damageData)
+        }
+    },
+    "恐怖的回忆": {
+        name: "恐怖的回忆",
+        type: SkillType.减益技,
+        info: '对单个目标附加破绽状态（额外受到30%伤害），持续2回合',
+        lv: 1,
+        mp: 30,
+        fn: function (agent, agentList, fn?) {
+            giveBuff(agent.goal, { name: "破绽", timer: 2 })
+            fn({
+                type: SkillType.减益技,
+                isNext: false
+            })
+            return `${getLineupName(agent.self)} 发动恐怖的回忆！对 ${getLineupName(agent.goal)} 附加了2回合破绽状态。`
         }
     }
 };

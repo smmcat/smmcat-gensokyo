@@ -4,13 +4,20 @@
         "areaName": "地下墓穴",
         "type": "BOSS区",
         "needLv": 1,
-        "down": "蜘蛛洞穴"
+        "down": "蜘蛛洞穴",
+        "monster": [
+            {
+                "name": "古明地觉",
+                "lv": 15
+            }
+        ]
     },
     "蜘蛛洞穴": {
         "floor": 1,
         "areaName": "蜘蛛洞穴",
         "type": "冒险区",
         "needLv": 1,
+        "top": "地下墓穴",
         "down": "蜘蛛森林一"
     },
     "蜘蛛森林一": {
@@ -196,6 +203,8 @@
         "needLv": 1,
         "top": "绿野平原一",
         "down": "野猪巢穴",
+        "left": "绿野平原五",
+        "right": "绿野平原六",
         "monster": [
             {
                 "name": "琪露诺",
@@ -203,18 +212,32 @@
             }
         ]
     },
+    "绿野平原五": {
+        "floor": 1,
+        "areaName": "绿野平原五",
+        "type": "冒险区",
+        "needLv": 1,
+        "top": "绿野平原二",
+        "right": "绿野平原四"
+    },
     "绿野平原六": {
         "floor": 1,
         "areaName": "绿野平原六",
         "type": "冒险区",
         "needLv": 1,
         "left": "绿野平原四",
-        "top": "绿野平原三"
+        "top": "绿野平原三",
+        "monster": [
+            {
+                "name": "绿毒蛇",
+                "lv": 12
+            }
+        ]
     },
     "野猪巢穴": {
         "floor": 1,
         "areaName": "野猪巢穴",
-        "type": "冒险区",
+        "type": "BOSS区",
         "needLv": 1,
         "top": "绿野平原四",
         "monster": [

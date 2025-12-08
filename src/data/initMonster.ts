@@ -204,7 +204,7 @@ export const monsterData: MonsterTempData = {
         chr: 100,
         csr: 0,
         evasion: 200,
-        hit: 1000,
+        hit: 100,
         ghd: 1.5,
         speed: 6,
         giveExp: 20,
@@ -213,5 +213,53 @@ export const monsterData: MonsterTempData = {
             { name: '初级复活卷轴', val: 1, radomVal: 50 }
         ],
         fn: [{ name: '初级治愈', prob: 3 }, { name: '水炮', prob: 1 }]
+    },
+    "绿毒蛇": {
+        name: "绿毒蛇",
+        type: MonsterOccupation.野怪,
+        info: '尖利的毒牙是它有利的武器，使用毒之牙技能造成群体伤害。',
+        pic: "http://smmcat.cn/run/gensokyo/绿毒蛇.png",
+        hp: 70,
+        maxHp: 70,
+        mp: 60,
+        maxMp: 60,
+        atk: 21,
+        def: 2,
+        chr: 120,
+        csr: 0,
+        evasion: 100,
+        hit: 30,
+        ghd: 1.6,
+        speed: 5,
+        giveExp: 16,
+        giveMonetary: 5,
+        giveProps: [
+            { name: '初级复活卷轴', val: 1, radomVal: 50 }
+        ],
+        fn: [{ name: '毒之牙', prob: 1 }]
+    },
+    "古明地觉": {
+        name: "古明地觉",
+        type: MonsterOccupation.BOSS,
+        info: '位于旧地狱中心地带的管理者，拥有读心的控制技能。',
+        pic: "http://smmcat.cn/run/gensokyo/古明地觉.png",
+        hp: 95,
+        maxHp: 95,
+        mp: 140,
+        maxMp: 140,
+        atk: 24,
+        def: 2,
+        chr: 150,
+        csr: 0,
+        evasion: 150,
+        hit: 30,
+        ghd: 1.6,
+        speed: 8,
+        giveExp: 20,
+        giveMonetary: 8,
+        giveProps: [
+            { name: '初级复活卷轴', val: 1, radomVal: 50 }
+        ],
+        fn: [{ name: '恐怖催眠术', prob: 1 }, { name: "恐怖的回忆", prob: 2 }]
     }
 }

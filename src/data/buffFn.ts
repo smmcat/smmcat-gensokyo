@@ -146,6 +146,19 @@ export const BuffFn: BuffFnList = {
                 }
             })
         }
+    },
+    "破绽": {
+        name: "破绽",
+        type: BuffType.减益,
+        info: "增加受到的 30% 伤害",
+        fn: function (agent: BattleAttribute, fn?) {
+            fn && fn({
+                type: BuffType.减益,
+                down: {
+                    reduction: 0.3
+                }
+            })
+        }
     }
 }
 
@@ -172,6 +185,7 @@ export function settlementBuff(agent: BattleAttribute) {
     agent.gain.maxMp = 0
     agent.gain.maxMp = 0
     agent.gain.speed = 0
+    agent.gain.reduction = 0
     agent.gain.dizziness = false
     agent.gain.chaos = false
 
@@ -186,6 +200,7 @@ export function settlementBuff(agent: BattleAttribute) {
         evasion: '闪避值',
         hit: '命中值',
         speed: '速度',
+        reduction: "伤害减免"
     }
     Object.keys(agent.buff).forEach((item) => {
         const buffInfo = BuffFn[item] || null
@@ -207,7 +222,7 @@ export function settlementBuff(agent: BattleAttribute) {
                 const upMsg = []
                 buffInfo.fn(agent, (val: BuffParams) => {
                     Object.keys(val.up).forEach((buffName) => {
-                        if (agent.gain[buffName]) {
+                        if (agent.gain[buffName] !== undefined) {
                             upMsg.push(val.up[buffName] > 0 ?
                                 gainDict[buffName] + '↑' + val.up[buffName] :
                                 gainDict[buffName] + '↓' + Math.abs(val.up[buffName])
@@ -222,7 +237,7 @@ export function settlementBuff(agent: BattleAttribute) {
                 const downMsg = []
                 buffInfo.fn(agent, (val: DeBuffParams) => {
                     Object.keys(val.down).forEach((buffName) => {
-                        if (agent.gain[buffName]) {
+                        if (agent.gain[buffName] !== undefined) {
                             downMsg.push(val.down[buffName] > 0 ?
                                 gainDict[buffName] + '↓' + val.down[buffName] :
                                 gainDict[buffName] + '↑' + Math.abs(val.down[buffName])
@@ -230,7 +245,7 @@ export function settlementBuff(agent: BattleAttribute) {
                             agent.gain[buffName] -= val.down[buffName]
                         }
                     })
-                    msgList.push(`${buffInfo.name}:${upMsg.join('、')}`)
+                    msgList.push(`${buffInfo.name}:${downMsg.join('、')}`)
                 })
                 break;
             case BuffType.控制:
@@ -247,5 +262,5 @@ export function settlementBuff(agent: BattleAttribute) {
         --agent.buff[item].timer
         if (agent.buff[item].timer == 0) delete agent.buff[item]
     })
-    return msgList.length ? msgList.map(item => `» ${getLineupName(agent)}:${item})`).join('\n') : null
+    return msgList.length ? msgList.map(item => `» ${getLineupName(agent)}:${item}`).join('\n') : null
 }

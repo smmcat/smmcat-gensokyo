@@ -1,16 +1,18 @@
 import { Context, Schema } from 'koishi'
 import type { } from 'koishi-plugin-monetary'
+import { } from 'koishi-plugin-puppeteer'
 import { AreaType, GensokyoMap, MoveType } from './map';
 import { User } from './users';
 import { Monster } from './monster';
 import { BattleData } from './battle';
-import { random } from './utlis';
+import { AsyncOperationQueue, random } from './utlis';
 import { skillFn } from './data/skillFn';
 import { Props } from './props';
+import { generateMapHTML } from './mapHtml';
 export const name = 'smmcat-gensokyo'
 
 export const inject = {
-  required: ['monetary', 'database']
+  required: ['monetary', 'database', 'puppeteer']
 };
 
 export interface Config { }
@@ -25,7 +27,7 @@ export function apply(ctx: Context, config: Config) {
     Monster.init(config, ctx)
     Props.init(config, ctx)
   })
-
+  const Queue = new AsyncOperationQueue()
   ctx
     .command('幻想乡')
   ctx
@@ -40,6 +42,9 @@ export function apply(ctx: Context, config: Config) {
         await session.send('您正在战斗中，无法移动！')
         return
       }
+      if (BattleData.isTeam(session) && BattleData.teamTemp[session.userId].identity !== '队长') {
+        return `你在队伍中，请等待队长选择移动的位置！`
+      }
       if (User.isDie(session.userId)) {
         return `你已经阵亡，请发送 /补给 进行治疗。`
       }
@@ -48,7 +53,7 @@ export function apply(ctx: Context, config: Config) {
         // 概率遇到怪物
         if (val.map.type == AreaType.冒险区 && val.map.monster?.length) {
           if (random(0, 10) <= 2) {
-            const selectMonster = val.map.monster[random(0, val.map.monster.length)]
+            const selectMonster = val.map.monster[random(0, val.map.monster.length - 1)]
             await session.send(`糟糕！你被 Lv.${selectMonster.lv} ${selectMonster.name} 发现，强制开启战斗！`)
             await BattleData.createBattleByMonster(session, [selectMonster])
           }
@@ -67,6 +72,9 @@ export function apply(ctx: Context, config: Config) {
         await session.send('您正在战斗中，无法移动！')
         return
       }
+      if (BattleData.isTeam(session) && BattleData.teamTemp[session.userId].identity !== '队长') {
+        return `你在队伍中，请等待队长选择移动的位置！`
+      }
       if (User.isDie(session.userId)) {
         return `你已经阵亡，请发送 /补给 进行治疗。`
       }
@@ -75,7 +83,7 @@ export function apply(ctx: Context, config: Config) {
         // 概率遇到怪物
         if (val.map.type == AreaType.冒险区 && val.map.monster?.length) {
           if (random(0, 10) <= 2) {
-            const selectMonster = val.map.monster[random(0, val.map.monster.length)]
+            const selectMonster = val.map.monster[random(0, val.map.monster.length - 1)]
             await session.send(`糟糕！你被 Lv.${selectMonster.lv} ${selectMonster.name} 发现，强制发生战斗！`)
             await BattleData.createBattleByMonster(session, [selectMonster])
           }
@@ -94,6 +102,9 @@ export function apply(ctx: Context, config: Config) {
         await session.send('您正在战斗中，无法移动！')
         return
       }
+      if (BattleData.isTeam(session) && BattleData.teamTemp[session.userId].identity !== '队长') {
+        return `你在队伍中，请等待队长选择移动的位置！`
+      }
       if (User.isDie(session.userId)) {
         return `你已经阵亡，请发送 /补给 进行治疗。`
       }
@@ -102,7 +113,7 @@ export function apply(ctx: Context, config: Config) {
         // 概率遇到怪物
         if (val.map.type == AreaType.冒险区 && val.map.monster?.length) {
           if (random(0, 10) <= 2) {
-            const selectMonster = val.map.monster[random(0, val.map.monster.length)]
+            const selectMonster = val.map.monster[random(0, val.map.monster.length - 1)]
             await session.send(`糟糕！你被 Lv.${selectMonster.lv} ${selectMonster.name} 发现，强制发生战斗！`)
             await BattleData.createBattleByMonster(session, [selectMonster])
           }
@@ -121,6 +132,9 @@ export function apply(ctx: Context, config: Config) {
         await session.send('您正在战斗中，无法移动！')
         return
       }
+      if (BattleData.isTeam(session) && BattleData.teamTemp[session.userId].identity !== '队长') {
+        return `你在队伍中，请等待队长选择移动的位置！`
+      }
       if (User.isDie(session.userId)) {
         return `你已经阵亡，请发送 /补给 进行治疗。`
       }
@@ -129,7 +143,7 @@ export function apply(ctx: Context, config: Config) {
         // 概率遇到怪物
         if (val.map.type == AreaType.冒险区 && val.map.monster?.length) {
           if (random(0, 10) <= 2) {
-            const selectMonster = val.map.monster[random(0, val.map.monster.length)]
+            const selectMonster = val.map.monster[random(0, val.map.monster.length - 1)]
             await session.send(`糟糕！你被 Lv.${selectMonster.lv} ${selectMonster.name} 发现，强制发生战斗！`)
             await BattleData.createBattleByMonster(session, [selectMonster])
           }
@@ -228,7 +242,7 @@ export function apply(ctx: Context, config: Config) {
         await BattleData.createBattleByMonster(session, [selectMonster])
       } else {
         const selectMonster = areaInfo.monster
-        await BattleData.createBattleByMonster(session, selectMonster)
+        await Queue.add(async () => await BattleData.createBattleByMonster(session, selectMonster))
       }
     })
 
@@ -237,7 +251,7 @@ export function apply(ctx: Context, config: Config) {
     .action(async ({ session }, goal) => {
       const userData = await User.getUserAttribute(session)
       if (!userData) return
-      BattleData.play(session, '普攻', goal)
+      await Queue.add(async () => BattleData.play(session, '普攻', goal))
     })
 
   ctx
@@ -245,7 +259,7 @@ export function apply(ctx: Context, config: Config) {
     .action(async ({ session }, skill, goal) => {
       const userData = await User.getUserAttribute(session)
       if (!userData) return
-      BattleData.play(session, skill, goal)
+      await Queue.add(async () => await BattleData.play(session, skill, goal))
     })
 
   ctx
@@ -273,11 +287,11 @@ export function apply(ctx: Context, config: Config) {
       if (BattleData.isTeamByUserId(exist.userId)) {
         const teamItem = BattleData.teamListByUser(exist.userId)
         await session.send(`对方有组队，您将扮演攻击方与对方队伍进行战斗。`)
-        await BattleData.createBattleByUser(session, teamItem.map((item) => ({ userId: item.userId })))
+        await Queue.add(async () => await BattleData.createBattleByUser(session, teamItem.map((item) => ({ userId: item.userId }))))
       }
       else {
         await session.send(`您将扮演攻击方与对方进行战斗。`)
-        await BattleData.createBattleByUser(session, [{ userId: exist.userId }])
+        await Queue.add(async () => await BattleData.createBattleByUser(session, [{ userId: exist.userId }]))
       }
     })
 
@@ -309,12 +323,16 @@ export function apply(ctx: Context, config: Config) {
       const userData = await User.getUserAttribute(session)
       if (!userData) return
       GensokyoMap.initUserPoistion(session, userData)
+      if (BattleData.isBattle(session)) {
+        await session.send('当前正在战斗，请结束后再使用改')
+        return
+      }
       if (temp[session.userId] == undefined) {
         temp[session.userId] = 0
       }
       const useTime = Date.now() - temp[session.userId]
       if (useTime < 360000) {
-        return `请等待下一个补给时间！剩余${Math.floor(360000 - (useTime / 60000))}分钟。`
+        return `请等待下一个补给时间！剩余${Math.floor((360000 - useTime) / 60000)}分钟。`
       }
       temp[session.userId] = Date.now()
       const { maxHp, maxMp, playName } = User.getUserAttributeByUserId(session.userId)
@@ -335,18 +353,37 @@ export function apply(ctx: Context, config: Config) {
   ctx
     .command('队伍操作/队伍创建')
     .action(async ({ session }) => {
+      const userData = await User.getUserAttribute(session)
+      if (!userData) return
+      GensokyoMap.initUserPoistion(session, userData)
+
+      if (BattleData.isBattle(session)) {
+        return `战斗中无法进行队伍创建操作！`
+      }
       await BattleData.creatTeam(session)
     })
   ctx
     .command('队伍操作/队伍信息')
     .action(async ({ session }) => {
+      const userData = await User.getUserAttribute(session)
+      if (!userData) return
+      GensokyoMap.initUserPoistion(session, userData)
+
       const team = BattleData.teamListByUser(session.userId)
       if (!team.length) return `你还没有队伍...`
-      return team.map((item) => `lv.${item.lv} ${item.playName} [${BattleData.teamTemp[item.userId].identity}]`).join('\n')
+      return `当前队伍信息如下：\n` +
+        team.map((item) => `lv.${item.lv} ${item.playName} [${BattleData.teamTemp[item.userId].identity}]`).join('\n')
     })
   ctx
     .command('队伍操作/队伍邀请 <playName>')
     .action(async ({ session }, playName) => {
+      const userData = await User.getUserAttribute(session)
+      if (!userData) return
+      GensokyoMap.initUserPoistion(session, userData)
+
+      if (BattleData.isBattle(session)) {
+        return `战斗中无法进行队伍邀请操作！`
+      }
       if (!playName) {
         return `请选择需要邀请的玩家昵称。例如 /队伍邀请 夜夜酱`
       }
@@ -356,16 +393,59 @@ export function apply(ctx: Context, config: Config) {
   ctx
     .command('队伍操作/队伍加入')
     .action(async ({ session }) => {
+      const userData = await User.getUserAttribute(session)
+      if (!userData) return
+      GensokyoMap.initUserPoistion(session, userData)
+
+      if (BattleData.isBattle(session)) {
+        return `战斗中无法进行队伍创建操作！`
+      }
       await BattleData.joinTeam(session)
     })
   ctx
     .command('队伍操作/队伍退出')
     .action(async ({ session }) => {
+      const userData = await User.getUserAttribute(session)
+      if (!userData) return
+      GensokyoMap.initUserPoistion(session, userData)
+
+      if (BattleData.isBattle(session)) {
+        return `战斗中无法进行队伍退出操作！`
+      }
       await BattleData.exitTeam(session)
     })
+
   ctx
     .command('队伍操作/队伍解散')
     .action(async ({ session }) => {
+      const userData = await User.getUserAttribute(session)
+      if (!userData) return
+      GensokyoMap.initUserPoistion(session, userData)
+
+      if (BattleData.isBattle(session)) {
+        return `战斗中无法进行队伍解散操作！`
+      }
       await BattleData.dissolveTeam(session)
+    })
+
+  ctx
+    .command('幻想乡/地图')
+    .action(async ({ session }) => {
+      const userData = await User.getUserAttribute(session)
+      if (!userData) return
+      GensokyoMap.initUserPoistion(session, userData)
+
+      const { areaName, floor } = GensokyoMap.userCurrentLoal[session.userId]
+      const mapLocal = GensokyoMap.mapLocalData[floor]
+      const html = generateMapHTML(mapLocal, areaName)
+      console.log(html);
+      await session.send(await ctx.puppeteer.render(html))
+    })
+
+
+  ctx
+    .command('幻想乡/打怪逃跑')
+    .action(async ({ session }) => {
+      await Queue.add(async () => await BattleData.battleEscape(session))
     })
 }

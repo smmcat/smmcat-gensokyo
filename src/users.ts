@@ -267,7 +267,7 @@ export const User = {
             await session.send('请不要设置怪物的名字！')
             return
         }
-        if (playname.trim().length < 6 || playname.trim().length > 1) {
+        if (playname.trim().length > 6 || playname.trim().length < 1) {
             await session.send('名字长度有问题，要求小于 6个字，大于 1个字')
             return
         }
@@ -366,7 +366,7 @@ export const User = {
                 name: afterData.playName,
                 lv: afterData.lv,
                 maxHp: afterData.maxHp - beforData.maxHp,
-                maxMp: afterData.maxMp = beforData.maxMp,
+                maxMp: afterData.maxMp - beforData.maxMp,
                 atk: afterData.atk - beforData.atk,
                 def: afterData.def - beforData.def
             }

@@ -1,6 +1,7 @@
 import { Context, Session } from "koishi";
 import { Config } from ".";
-import { UserBaseAttribute } from "./users";
+import { User, UserBaseAttribute } from "./users";
+import { BattleData } from "./battle";
 
 /** 区域类型枚举 */
 export enum AreaType {
@@ -13,7 +14,7 @@ declare module 'koishi' {
 }
 
 /** 区域信息 */
-type AreaItem = {
+export type AreaItem = {
     /** 层级 */
     floor: number,
     /** 区域名 */
@@ -107,14 +108,16 @@ export const GensokyoMap = {
                     floor: 1,
                     areaName: "地下墓穴",
                     type: AreaType.BOSS区,
-                    needLv: 1,
-                    down: "蜘蛛洞穴"
+                    needLv: 10,
+                    down: "蜘蛛洞穴",
+                    monster: [{ name: "古明地觉", lv: 15 }]
                 },
                 "蜘蛛洞穴": {
                     floor: 1,
                     areaName: "蜘蛛洞穴",
                     type: AreaType.冒险区,
                     needLv: 1,
+                    top: "地下墓穴",
                     down: "蜘蛛森林一"
                 },
                 "蜘蛛森林一": {
@@ -198,7 +201,7 @@ export const GensokyoMap = {
                 },
                 "爱之湖": {
                     floor: 1,
-                    areaName: "传送门",
+                    areaName: "爱之湖",
                     type: AreaType.安全区,
                     needLv: 1,
                     right: "传送门"
@@ -257,7 +260,17 @@ export const GensokyoMap = {
                     needLv: 1,
                     top: "绿野平原一",
                     down: "野猪巢穴",
+                    left: "绿野平原五",
+                    right: "绿野平原六",
                     monster: [{ name: '琪露诺', lv: 10 }]
+                },
+                "绿野平原五": {
+                    floor: 1,
+                    areaName: "绿野平原五",
+                    type: AreaType.冒险区,
+                    needLv: 1,
+                    top: "绿野平原二",
+                    right: "绿野平原四"
                 },
                 "绿野平原六": {
                     floor: 1,
@@ -265,15 +278,89 @@ export const GensokyoMap = {
                     type: AreaType.冒险区,
                     needLv: 1,
                     left: "绿野平原四",
-                    top: "绿野平原三"
+                    top: "绿野平原三",
+                    monster: [{ name: "绿毒蛇", lv: 12 }]
                 },
                 "野猪巢穴": {
                     floor: 1,
                     areaName: "野猪巢穴",
                     type: AreaType.BOSS区,
-                    needLv: 1,
+                    needLv: 15,
                     top: "绿野平原四",
                     monster: [{ name: '蓬莱山辉夜', lv: 20 }]
+                }
+            },
+            2: {
+                "传送门": {
+                    floor: 2,
+                    areaName: "传送门",
+                    type: AreaType.传送门,
+                    needLv: 1,
+                    right: "希望之泉"
+                },
+                "希望之泉": {
+                    floor: 2,
+                    areaName: "希望之泉",
+                    type: AreaType.安全区,
+                    needLv: 1,
+                    top: "爱之湖",
+                    down: "农田",
+                    left: "传送门",
+                    right: "2层-商店",
+                },
+                "爱之湖": {
+                    floor: 2,
+                    areaName: "爱之湖",
+                    type: AreaType.安全区,
+                    needLv: 1,
+                    down: "希望之泉",
+                    right: "旅馆"
+                },
+                "农田": {
+                    floor: 2,
+                    areaName: "农田",
+                    type: AreaType.安全区,
+                    needLv: 1,
+                    top: "希望之泉",
+                    right: "银行"
+                },
+                "银行": {
+                    floor: 2,
+                    areaName: "银行",
+                    type: AreaType.安全区,
+                    needLv: 1,
+                    top: "2层-商店",
+                    left: "农田"
+                },
+                "旅馆": {
+                    floor: 2,
+                    areaName: "旅馆",
+                    type: AreaType.安全区,
+                    needLv: 1,
+                    down: "2层-商店",
+                    left: "爱之湖"
+                },
+                "2层-商店": {
+                    floor: 2,
+                    areaName: "2层-商店",
+                    type: AreaType.安全区,
+                    needLv: 1,
+                    right: "大草场"
+                },
+                "大草场": {
+                    floor: 2,
+                    areaName: "大草场",
+                    type: AreaType.安全区,
+                    needLv: 1,
+                    left: "2层-商店",
+                    right: "森林岔口"
+                },
+                "森林岔口": {
+                    floor: 2,
+                    areaName: "森林岔口",
+                    type: AreaType.安全区,
+                    needLv: 1,
+                    left: "大草场"
                 }
             }
         }
@@ -356,11 +443,40 @@ export const GensokyoMap = {
                 userCurrentArea.moveing = false
                 return
             }
-            if (newArea.needLv > 1) {
+            if (newArea.needLv > User.userTempData[session.userId].lv) {
                 await session.send(`当前区域由于您的等级未达到最低要求，暂时无法进入。\n需要等级：${newArea.needLv}级`)
                 userCurrentArea.moveing = false
                 return
             }
+
+            // 如果存在小队，一起移动
+            if (BattleData.isTeam(session)) {
+                const { userId } = session
+                const myTeamList = []
+                Object.keys(BattleData.teamTemp).forEach((_userId) => {
+                    if (BattleData.teamTemp[_userId].for == userId && userId !== _userId) {
+                        myTeamList.push(_userId)
+                    }
+                })
+                // 队伍中是否存在低于目标地图要求进入等级的玩家
+                const belowUser = myTeamList.filter((teamUserId) => newArea.needLv > User.userTempData[teamUserId].lv)
+                if (belowUser.length) {
+                    await session.send(`移动失败！队伍存在限制进入等级(lv.${newArea.needLv})玩家，\n` +
+                        `目前限制进入的玩家：\n${belowUser.map((item) => {
+                            return `Lv.${User.userTempData[item].lv} ${User.userTempData[item].playName}`
+                        }).join('\n')}`
+                    )
+                    userCurrentArea.moveing = false
+                    return
+                }
+                for (const moveTeamUserId of myTeamList) {
+                    GensokyoMap.userCurrentLoal[moveTeamUserId].areaName = newArea.areaName
+                    GensokyoMap.userCurrentLoal[moveTeamUserId].floor = newArea.floor
+                    GensokyoMap.userCurrentLoal[moveTeamUserId].moveing = false
+                    await GensokyoMap.setLocalStoragePoistionData(moveTeamUserId)
+                }
+            }
+
             userCurrentArea.areaName = newArea.areaName
             const areaInfo = {
                 user: { ...userCurrentArea },
@@ -417,7 +533,7 @@ export const GensokyoMap = {
             (data.map.npc ? `\n[!]存在npc：${data.map.npc.join('、')}` : '') +
             (data.map.monster ? `\n[!]存在野怪：${data.map.monster.map(i => `lv.${i.lv} ${i.name}`).join('、')}` : '') +
             (liveUser.length ? `\n[!]区域玩家：${liveUser.length > 3 ? liveUser.slice(0, 3).join('、') +
-                `...等${liveUser.length}` : liveUser.join('、')}` : '')
+                `...等${liveUser.length}名玩家` : liveUser.join('、')}` : '')
         return str + mapInfo
     }
 }

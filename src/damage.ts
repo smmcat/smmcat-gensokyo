@@ -8,6 +8,7 @@ type DamageCallback = {
     evasion?: Callback;
     csp?: Callback;
     beforDef?: Callback;
+    beforEnd?: Callback
 }
 /** 当前伤害回调函数 */
 interface Callback {
@@ -28,6 +29,8 @@ export type DamageConfig = {
     isCsp: boolean
     /** 是否未破防 */
     isBadDef: boolean
+    /** 减免伤害 */
+    reductionVal: number
 }
 
 class Damage {
@@ -40,7 +43,8 @@ class Damage {
             isRealHarm: realHarm,
             isEvasion: false,
             isCsp: false,
-            isBadDef: false
+            isBadDef: false,
+            reductionVal: 0
         }
 
     }
@@ -115,6 +119,18 @@ class Damage {
 
         return this
     }
+    /** 最终结算 伤害减免 */
+    beforEnd(fn: (config: DamageConfig) => void) {
+        if (!this.config.isRealHarm) {
+            this.config.reductionVal = Math.floor(this.config.agent.goal.gain.reduction * this.config.harm)
+            this.config.harm -= this.config.reductionVal
+            if (this.config.harm < 0) {
+                this.config.harm = 0
+            }
+        }
+        fn && fn(this.config)
+        return this
+    }
     result(fn?: DamageCallback) {
         this
             .before((val) => {
@@ -129,6 +145,8 @@ class Damage {
                 fn?.csp && fn.csp(val)
             }).beforDef((val) => {
                 fn?.beforDef && fn.beforDef(val)
+            }).beforEnd((val) => {
+                fn?.beforEnd && fn.beforEnd(val)
             })
         return this.config
     }
