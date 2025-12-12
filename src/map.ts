@@ -358,9 +358,10 @@ export const GensokyoMap = {
                 "森林岔口": {
                     floor: 2,
                     areaName: "森林岔口",
-                    type: AreaType.安全区,
+                    type: AreaType.BOSS区,
                     needLv: 1,
-                    left: "大草场"
+                    left: "大草场",
+                    monster: [{ name: '古明地恋', lv: 25 }]
                 }
             }
         }
@@ -478,14 +479,15 @@ export const GensokyoMap = {
             }
 
             userCurrentArea.areaName = newArea.areaName
+            userCurrentArea.floor = newArea.floor
             const areaInfo = {
                 user: { ...userCurrentArea },
                 map: { ...newArea }
             }
             fn && await fn(areaInfo)
-            await delay(3000)
             userCurrentArea.moveing = false
             GensokyoMap.setLocalStoragePoistionData(session.userId)
+            await delay(3000)
             return
         } catch (error) {
             console.log(error);
@@ -493,6 +495,78 @@ export const GensokyoMap = {
                 GensokyoMap.userCurrentLoal[session.userId].moveing = false
             }
         }
+    },
+    /** 用户传送楼层 */
+    async jumpFloor(session: Session, afterFloor: number, fn?: (area: AreaCallbackData) => Promise<void>) {
+        const userCurrentArea = GensokyoMap.userCurrentLoal[session.userId] || {} as UserPosition
+        const { floor, areaName, moveing } = userCurrentArea
+        if (moveing) {
+            await session.send('当前移动冷却中，请稍等...')
+            return
+        }
+        if (!(floor && areaName)) {
+            await session.send('您当前位置有误，请使用(还没写好的指令)脱离卡死...')
+            return
+        }
+        if (floor == afterFloor) {
+            await session.send('目标层和当前层一致，无需传送！')
+            return
+        }
+        userCurrentArea.moveing = true
+        const newFloorMap = GensokyoMap.mapLocalData[afterFloor]
+        if (!newFloorMap) {
+            await session.send('未存在该层，传送失败！')
+            userCurrentArea.moveing = false
+            return
+        }
+        const currentArea = Object.keys(newFloorMap).find((areaName) => newFloorMap[areaName].type == AreaType.传送门)
+        if (!currentArea) {
+            await session.send('目标传送层不存在传送门区域，传送失败...')
+            userCurrentArea.moveing = false
+            return
+        }
+        const afterArea = newFloorMap[currentArea]
+        console.log(newFloorMap[currentArea]);
+
+
+        // 如果存在小队，一起移动
+        if (BattleData.isTeam(session)) {
+            const { userId } = session
+            const myTeamList = []
+            Object.keys(BattleData.teamTemp).forEach((_userId) => {
+                if (BattleData.teamTemp[_userId].for == userId && userId !== _userId) {
+                    myTeamList.push(_userId)
+                }
+            })
+            // 队伍中是否存在低于目标地图要求进入等级的玩家
+            const belowUser = myTeamList.filter((teamUserId) => afterArea.needLv > User.userTempData[teamUserId].lv)
+            if (belowUser.length) {
+                await session.send(`移动失败！队伍存在限制进入等级(lv.${afterArea.needLv})玩家，\n` +
+                    `目前限制进入的玩家：\n${belowUser.map((item) => {
+                        return `Lv.${User.userTempData[item].lv} ${User.userTempData[item].playName}`
+                    }).join('\n')}`
+                )
+                userCurrentArea.moveing = false
+                return
+            }
+            for (const moveTeamUserId of myTeamList) {
+                GensokyoMap.userCurrentLoal[moveTeamUserId].areaName = afterArea.areaName
+                GensokyoMap.userCurrentLoal[moveTeamUserId].floor = afterArea.floor
+                GensokyoMap.userCurrentLoal[moveTeamUserId].moveing = false
+                await GensokyoMap.setLocalStoragePoistionData(moveTeamUserId)
+            }
+        }
+
+        userCurrentArea.areaName = afterArea.areaName
+        userCurrentArea.floor = afterArea.floor
+        const areaInfo = {
+            user: { ...userCurrentArea },
+            map: { ...afterArea }
+        }
+        fn && await fn(areaInfo)
+        userCurrentArea.moveing = false
+        GensokyoMap.setLocalStoragePoistionData(session.userId)
+        await delay(3000)
     },
     /** 查询附近玩家 */
     nearbyPlayersByUserId(userId: string) {

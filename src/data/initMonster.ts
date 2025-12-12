@@ -61,6 +61,8 @@ export type MonsterBaseAttribute = {
         /** 触发概率 */
         prob: number
     }[]
+    /** 被动技能 */
+    passiveList?: string[]
 }
 
 export type MonsterTempData = {
@@ -86,7 +88,7 @@ export const monsterData: MonsterTempData = {
         chr: 50,
         csr: 0,
         evasion: 100,
-        hit: 0,
+        hit: 1000,
         ghd: 1.2,
         speed: 4,
         giveExp: 10,
@@ -94,7 +96,8 @@ export const monsterData: MonsterTempData = {
         giveProps: [
             { name: '红药', val: 3, radomVal: 30 }
         ],
-        fn: [{ name: '垂死挣扎', prob: 1 }]
+        fn: [{ name: '垂死挣扎', prob: 1 }],
+        passiveList: []
     },
     "小蜘蛛": {
         name: "小蜘蛛",
@@ -110,14 +113,15 @@ export const monsterData: MonsterTempData = {
         chr: 50,
         csr: 0,
         evasion: 150,
-        hit: 0,
+        hit: 1000,
         ghd: 1.2,
         speed: 4,
         giveExp: 12,
         giveMonetary: 2,
         giveProps: [
             { name: '蓝药', val: 3, radomVal: 30 }
-        ]
+        ],
+        passiveList: []
     },
     "dora": {
         name: "dora",
@@ -133,7 +137,7 @@ export const monsterData: MonsterTempData = {
         chr: 200,
         csr: 0,
         evasion: 200,
-        hit: 0,
+        hit: 1000,
         ghd: 1.2,
         speed: 4,
         giveExp: 15,
@@ -142,7 +146,8 @@ export const monsterData: MonsterTempData = {
             { name: '蓝药', val: 3, radomVal: 30 },
             { name: '初级万能药', val: 2, radomVal: 90, const: true, lv: 5 }
         ],
-        fn: [{ name: '治愈之光', prob: 1 }]
+        fn: [{ name: '治愈之光', prob: 1 }],
+        passiveList: []
     },
     "琪露诺": {
         name: "琪露诺",
@@ -158,11 +163,12 @@ export const monsterData: MonsterTempData = {
         chr: 100,
         csr: 0,
         evasion: 100,
-        hit: -800,
+        hit: 200,
         ghd: 1.2,
         speed: 4,
         giveExp: 15,
         giveMonetary: 3,
+        passiveList: [],
         giveProps: [
             { name: '初级复活卷轴', val: 1, radomVal: 50 }
         ]
@@ -181,11 +187,12 @@ export const monsterData: MonsterTempData = {
         chr: 100,
         csr: 0,
         evasion: 100,
-        hit: -400,
+        hit: 600,
         ghd: 1.2,
         speed: 5,
         giveExp: 15,
         giveMonetary: 3,
+        passiveList: [],
         giveProps: [
             { name: '初级复活卷轴', val: 1, radomVal: 50 }
         ]
@@ -204,11 +211,12 @@ export const monsterData: MonsterTempData = {
         chr: 100,
         csr: 0,
         evasion: 200,
-        hit: 100,
+        hit: 1100,
         ghd: 1.5,
         speed: 6,
         giveExp: 20,
         giveMonetary: 5,
+        passiveList: [],
         giveProps: [
             { name: '初级复活卷轴', val: 1, radomVal: 50 }
         ],
@@ -228,11 +236,12 @@ export const monsterData: MonsterTempData = {
         chr: 120,
         csr: 0,
         evasion: 100,
-        hit: 30,
+        hit: 1030,
         ghd: 1.6,
         speed: 5,
         giveExp: 16,
         giveMonetary: 5,
+        passiveList: [],
         giveProps: [
             { name: '初级复活卷轴', val: 1, radomVal: 50 }
         ],
@@ -252,14 +261,40 @@ export const monsterData: MonsterTempData = {
         chr: 150,
         csr: 0,
         evasion: 150,
-        hit: 30,
+        hit: 1300,
         ghd: 1.6,
         speed: 8,
         giveExp: 20,
         giveMonetary: 8,
+        passiveList: [],
         giveProps: [
             { name: '初级复活卷轴', val: 1, radomVal: 50 }
         ],
         fn: [{ name: '恐怖催眠术', prob: 1 }, { name: "恐怖的回忆", prob: 2 }]
+    },
+    "古明地恋": {
+        name: "古明地恋",
+        type: MonsterOccupation.BOSS,
+        info: '她与觉一样拥有读心术,但她知道人们讨厌这种能力,因此将能读心的第三只眼紧闭着',
+        pic: "http://smmcat.cn/run/gensokyo/古明地恋.png",
+        hp: 135,
+        maxHp: 135,
+        mp: 140,
+        maxMp: 140,
+        atk: 5,
+        def: 2,
+        chr: 150,
+        csr: 0,
+        evasion: 200,
+        hit: 1300,
+        ghd: 1.6,
+        speed: 8,
+        giveExp: 20,
+        giveMonetary: 8,
+        passiveList: ['反伤'],
+        giveProps: [
+            { name: '大红药', val: 2, radomVal: 50 }
+        ],
+        fn: [{ name: '紧闭的恋之瞳', prob: 3 }, { name: "初级驱散", prob: 1 }, { name: '无意识行动', prob: 2 }]
     }
 }

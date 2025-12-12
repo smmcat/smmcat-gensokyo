@@ -95,7 +95,9 @@ export function generateMapHTML(mapData: MapData, currentAreaName?: string): str
     let html = `
 <style>
 .map-container {
-    display: inline-block;
+        display: flex;
+        justify-content: center;
+        align-items: center;
     position: relative;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     font-size: 12px;
@@ -103,7 +105,7 @@ export function generateMapHTML(mapData: MapData, currentAreaName?: string): str
     padding: 20px;
     border-radius: 12px;
     min-width: 100vw;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    min-height:100vh;
 }
 .map-table {
     border-collapse: separate;
@@ -253,58 +255,7 @@ export function generateMapHTML(mapData: MapData, currentAreaName?: string): str
 <svg class="connection-lines" width="${svgWidth}" height="${svgHeight}">
 `;
 
-    // 生成连接线 - 使用更美观的线条设计
-    for (let r = minRow; r <= maxRow; r++) {
-        for (let c = minCol; c <= maxCol; c++) {
-            const cell = grid[r]?.[c];
-            if (cell) {
-                const { connections } = cell;
-                const x = (c - minCol) * cellWidth + cellWidth / 2;
-                const y = (r - minRow) * cellHeight + cellHeight / 2;
-                
-                // 在单元格中心添加连接点
-                html += `<circle class="connection-dot" cx="${x}" cy="${y}" r="4" />`;
-                
-                // 上连接线
-                if (connections.top) {
-                    const targetX = x;
-                    const targetY = y - cellHeight;
-                    html += `<line class="connection-line connection-line-dotted" 
-                        x1="${x}" y1="${y}" 
-                        x2="${targetX}" y2="${targetY}" />`;
-                }
-                
-                // 下连接线
-                if (connections.down) {
-                    const targetX = x;
-                    const targetY = y + cellHeight;
-                    html += `<line class="connection-line connection-line-dotted" 
-                        x1="${x}" y1="${y}" 
-                        x2="${targetX}" y2="${targetY}" />`;
-                }
-                
-                // 左连接线
-                if (connections.left) {
-                    const targetX = x - cellWidth;
-                    const targetY = y;
-                    html += `<line class="connection-line connection-line-dotted" 
-                        x1="${x}" y1="${y}" 
-                        x2="${targetX}" y2="${targetY}" />`;
-                }
-                
-                // 右连接线
-                if (connections.right) {
-                    const targetX = x + cellWidth;
-                    const targetY = y;
-                    html += `<line class="connection-line connection-line-dotted" 
-                        x1="${x}" y1="${y}" 
-                        x2="${targetX}" y2="${targetY}" />`;
-                }
-            }
-        }
-    }
-
-    html += `</svg><table class="map-table">`;
+    html += `<table class="map-table">`;
 
     // 生成表格单元格
     for (let r = minRow; r <= maxRow; r++) {

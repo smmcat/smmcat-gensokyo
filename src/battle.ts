@@ -2,7 +2,7 @@ import { Context, Session } from "koishi";
 import { Config } from ".";
 import { User, UserBaseAttribute } from "./users";
 import { Monster } from "./monster";
-import { Damage, giveCure, giveDamage, moreDamageInfo } from "./damage";
+import { baseMoreDamage, Damage, giveCure, giveDamage, moreDamageInfo } from "./damage";
 import { generateHealthDisplay, random } from "./utlis";
 import { skillFn, SkillType, UseAtkType, UserOccupation } from "./data/skillFn";
 import { MonsterBaseAttribute, MonsterOccupation } from "./data/initMonster";
@@ -29,6 +29,7 @@ type BattleHistory = {
 type TeamData = {
     [keys: string]: {
         for: string,
+        duties: '前排' | '后排'
         identity: '队员' | '队长'
     }
 }
@@ -38,6 +39,7 @@ export type BattleAttribute = {
     id: number
     /** 阵容 */
     for?: 'self' | 'goal',
+    duties?: '前排' | '后排'
     /** 等级 */
     lv: number
     /** 单位名称 */
@@ -78,6 +80,8 @@ export type BattleAttribute = {
     buff: { [keys: string]: { name: string, timer: number } },
     /** 持有技能 */
     fn?: { name: string, prob: number }[],
+    /** 被动技能 */
+    passiveList?: string[],
     /** 拓展数据 */
     expand: { [keys: string]: any }
 }
@@ -105,8 +109,12 @@ export type BuffGain = {
     dizziness?: boolean
     /** 是否混乱 */
     chaos?: boolean
+    /** 是否沉默 */
+    silence?: boolean,
     /** 伤害减免 */
     reduction?: number
+    /** 治疗加成 */
+    TreatmentUp?: number
 }
 
 /** 最后战斗状态 */
@@ -156,7 +164,7 @@ export const BattleData = {
     },
     // 返回队伍信息
     teamListByUser(userId: string) {
-        const teamList = [] as UserBaseAttribute[]
+        const teamList = [] as (UserBaseAttribute & { duties: '前排' | '后排' })[]
         // 寻找队伍人员
         if (!BattleData.teamTemp[userId]) {
             return []
@@ -165,7 +173,7 @@ export const BattleData = {
         const _userId = BattleData.teamTemp[userId].for
         Object.keys(BattleData.teamTemp).forEach((item) => {
             if (BattleData.teamTemp[item].for == _userId) {
-                teamList.push(User.getUserAttributeByUserId(item))
+                teamList.push({ ...User.getUserAttributeByUserId(item), duties: BattleData.teamTemp[item].duties })
             }
         })
         return teamList
@@ -174,11 +182,12 @@ export const BattleData = {
     async creatTeam(session: Session) {
         const { userId } = session
         if (BattleData.isTeamByUserId(userId)) {
-            await session.send(`${User.getUserName(userId)}:你已经加入了${BattleData.teamTemp[userId].for}的队伍，需要退出才可以重新创建！`)
+            await session.send(`${User.getUserName(userId)}:你已经加入了${User.getUserName(BattleData.teamTemp[userId].for)}的队伍，需要退出才可以重新创建！`)
             return
         }
         BattleData.teamTemp[userId] = {
             for: userId,
+            duties: '后排',
             identity: '队长'
         }
         await session.send('创建队伍成功！发送 /队伍邀请 昵称 \n可对周围对应昵称玩家进行组队邀请！')
@@ -237,6 +246,7 @@ export const BattleData = {
         }
         BattleData.teamTemp[userId] = {
             for: invInfo.for,
+            duties: '后排',
             identity: '队员'
         }
         await session.send(`加入${invInfo.playName}的队伍成功！\n若后续需要退出可发送 /队伍退出`)
@@ -272,6 +282,40 @@ export const BattleData = {
             delete BattleData.teamTemp[item.userId]
         })
         await session.send('操作成功，已经解散你创建的小队。')
+    },
+    /** 查看职责 */
+    async getTeamDuties(session: Session) {
+        const { userId } = session
+        if (!BattleData.isTeamByUserId(userId)) {
+            await session.send('你还没有加入任何队伍！')
+            return
+        }
+        const team = BattleData.teamListByUser(userId)
+        await session.send(`当前队伍职责：\n` + team.map((agent) => {
+            return `Lv.${agent.lv} ` + agent.playName + ` [${agent.duties}]`
+        }).join('\n'))
+    },
+    /** 设置职责 */
+    async settingTeamDuties(session: Session, playName: string, duties: '前排' | '后排') {
+        const { userId } = session
+        if (!BattleData.isTeamByUserId(userId)) {
+            await session.send('你还没有加入任何队伍！')
+            return
+        }
+        if (BattleData.teamTemp[userId].identity == '队员') {
+            await session.send('你不是小队队长，无法配置职责。')
+            return
+        }
+
+
+        const isUpdate = Object.keys(BattleData.teamTemp).some((item) => {
+            if (BattleData.teamTemp[item].for == userId && item == User.getUserIdByPlayName(playName)) {
+                BattleData.teamTemp[item].duties = duties
+                return true
+            }
+            return false
+        })
+        await session.send(isUpdate ? '修改成功！' : '修改失败，可能原因：小队中不存在此人！')
     },
     /** 创建战斗-与怪物 */
     async createBattleByMonster(session: Session, goal: { name: string, lv: number }[]) {
@@ -541,7 +585,14 @@ export const BattleData = {
                     }
                     // 怪物操作
                     else {
-                        selectGoal = lifeGoalList[Math.floor(Math.random() * lifeGoalList.length)]
+                        // 优先攻击前排
+                        const fistGoal = lifeGoalList.filter((item) => item.duties == '前排')
+                        if (!fistGoal.length) {
+                            selectGoal = lifeGoalList[Math.floor(Math.random() * lifeGoalList.length)]
+                        } else {
+                            selectGoal = fistGoal[Math.floor(Math.random() * fistGoal.length)]
+                        }
+
                         // 概率释放技能
                         if (random(0, 10) < 4 && agent.fn?.length) {
                             funType = getSkillFn(agent.fn)
@@ -558,20 +609,22 @@ export const BattleData = {
                     const damageInfo = new Damage({ self: agent, goal: selectGoal }).result()
                     giveDamage(agent, selectGoal, damageInfo)
                     msgList.push(`${getLineupName(agent)} 使用普攻攻击了 ${getLineupName(selectGoal)}，`
-                        + `造成了${damageInfo.harm}伤害。` + moreDamageInfo(damageInfo)
+                        + `造成了${damageInfo.harm}伤害。` + baseMoreDamage(damageInfo)
                     )
                 }
-                if (funType == '普攻') {
+
+                if (funType == '普攻' || agent.gain.silence) {
                     noralAtk()
                 } else {
                     // 尝试释放技能
-                    if (skillFn[funType]) {
+                    if (skillFn[funType] && skillFn[funType].lv <= agent.lv) {
                         // 是否为(治疗|增益)技能 特殊处理
                         let _selectGoal = selectGoal
                         if ([SkillType.治疗技, SkillType.增益技].includes(skillFn[funType].type)) {
                             _selectGoal = lifeSelfList.find((item) => item.name == select) || agent
                         }
                         const selectFn = skillFn[funType]
+                        let buffmsg = ''
                         // 如果MP消耗足够
                         if (selectFn.mp == 0 || agent.mp - selectFn.mp >= 0) {
                             agent.mp -= selectFn.mp
@@ -586,10 +639,18 @@ export const BattleData = {
                                             break;
                                         case SkillType.治疗技:
                                             val.target.map((goal) => {
-                                                giveCure(goal, val.value)
+                                                val.value += val.value * (1 - agent.gain.TreatmentUp)
+                                                giveCure(goal, val.value, (msg) => {
+                                                    if (msg) {
+                                                        buffmsg = '。' + msg
+                                                    }
+                                                })
                                             })
                                             break;
                                         case SkillType.增益技:
+                                            isMy && val.err && session.send(val.err)
+                                            break;
+                                        case SkillType.减益技:
                                             isMy && val.err && session.send(val.err)
                                             break;
                                         case SkillType.释放失败:
@@ -599,15 +660,20 @@ export const BattleData = {
                                     }
                                     isNext = val.isNext
                                 })
-                            fnMsg && msgList.push(fnMsg)
+                            fnMsg && msgList.push(fnMsg + buffmsg)
                             isNext && noralAtk()
                         } else {
                             isMy && await session.send(`MP不足，释放失败！`)
                             noralAtk()
                         }
                     } else {
-                        isMy && await session.send(`未持有该技能或者该技能不存在，释放失败！`)
-                        noralAtk()
+                        if (skillFn[funType] && skillFn[funType].lv > agent.lv) {
+                            isMy && await session.send(`释放技能等级要求不足(Lv.${skillFn[funType].lv})，释放失败！`)
+                            noralAtk()
+                        } else {
+                            isMy && await session.send(`未持有该技能，释放失败！`)
+                            noralAtk()
+                        }
                     }
                 }
             }
@@ -757,6 +823,7 @@ function initBattleAttribute(data: UserBaseAttribute | MonsterBaseAttribute): Ba
             id: Date.now(),
             userId: userData.userId,
             name: userData.playName,
+            duties: BattleData.isTeamByUserId(userData.userId) ? BattleData.teamTemp[userData.userId].duties : '前排',
             lv: userData.lv,
             type: '玩家',
             selfType: userData.type,
@@ -784,10 +851,13 @@ function initBattleAttribute(data: UserBaseAttribute | MonsterBaseAttribute): Ba
                 speed: 0,
                 chaos: false,
                 dizziness: false,
+                silence: false,
+                TreatmentUp: 0,
                 reduction: 0
             },
             buff: {},
             fn: [],
+            passiveList: [],
             expand: {}
         } as BattleAttribute
         return temp
@@ -824,12 +894,19 @@ function initBattleAttribute(data: UserBaseAttribute | MonsterBaseAttribute): Ba
                 speed: 0,
                 chaos: false,
                 dizziness: false,
+                silence: false,
+                TreatmentUp: 0,
                 reduction: 0
             },
             buff: {},
-            fn: monsterData.fn ? JSON.parse(JSON.stringify(monsterData.fn)) : [],
+            passiveList: monsterData.passiveList || [],
+            fn: monsterData.fn ? JSON.parse(JSON.stringify(monsterData.fn)).filter((item: { name: string, prob: number }) => {
+                return skillFn[item.name] && monsterData.lv >= skillFn[item.name].lv
+            }) : [],
             expand: {}
         } as BattleAttribute
+        console.log(temp);
+
         return temp
     }
 }

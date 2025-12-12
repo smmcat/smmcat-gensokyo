@@ -106,7 +106,7 @@ export const UserOccDict: Record<UserOccupation, { info: string, initStatus: Use
             ghd: 1.2,
             speed: 5,
             evasion: 100,
-            hit: 100
+            hit: 1100
         }
     },
     [UserOccupation.法师]: {
@@ -131,7 +131,7 @@ export const UserOccDict: Record<UserOccupation, { info: string, initStatus: Use
             ghd: 1.2,
             speed: 5,
             evasion: 100,
-            hit: 100
+            hit: 1100
         }
     },
     [UserOccupation.刺客]: {
@@ -156,7 +156,7 @@ export const UserOccDict: Record<UserOccupation, { info: string, initStatus: Use
             ghd: 1.3,
             speed: 6,
             evasion: 120,
-            hit: 100
+            hit: 1100
         }
     }
 };
@@ -165,6 +165,7 @@ export const User = {
     config: {} as Config,
     ctx: {} as Context,
     userTempData: {} as UserTempData,
+    userNameTemp: {} as { [keys: string]: string },
     async init(config: Config, ctx: Context) {
         User.config = config;
         User.ctx = ctx;
@@ -192,12 +193,17 @@ export const User = {
         const temp = {} as UserTempData
         userData.forEach((item) => {
             temp[item.userId] = item
+            User.userNameTemp[item.playName] = item.userId
         })
         User.userTempData = temp
     },
     /** 获取玩家名字 */
     getUserName(userId: string) {
         return User.userTempData[userId].playName || null
+    },
+    /** 获取玩家userId */
+    getUserIdByPlayName(playName: string) {
+        return User.userNameTemp[playName] || null
     },
     /** 获取角色基础属性 */
     async getUserAttribute(session: Session) {
@@ -225,23 +231,72 @@ export const User = {
         } as UserBaseAttribute
 
         const lv = UserData.lv
-        const temp = {} as UserBaseAttribute
-        // 选择等级配置
-        const lvScope = Object.keys(userBenchmark).reverse().find((item) => Number(item) < lv) || 10
-        const useBenchmark = userBenchmark[lvScope]
 
-        // 赋予等级叠加后的属性
-        Object.keys(UserData).forEach((i) => {
-            temp[i] = UserData[i]
-            if (useBenchmark[i]) {
-                if (i == 'maxExp') {
-                    temp[i] = Math.floor(100 * useBenchmark[i] * (lv - 1)) || 100
-                } else {
-                    temp[i] += Math.floor((temp[i] * (useBenchmark[i] - 1) * (lv - 1)))
+        // 创建临时对象，复制初始属性
+        const temp = {
+            ...UserData,
+            maxExp: UserData.maxExp,
+            maxHp: UserData.maxHp,
+            maxMp: UserData.maxMp,
+            maxPp: UserData.maxPp || 100, // 添加默认值
+            type: UserDict.type, // 添加职业类型
+            csr: UserData.csr || 0 // 添加暴击抵抗
+        } as UserBaseAttribute
+
+        // 如果等级为1，直接返回初始属性
+        if (lv <= 1) {
+            return temp;
+        }
+
+        // 定义等级阶段和对应的基准
+        const levelStages = [
+            { maxLevel: 10, benchmark: userBenchmark[10] },
+            { maxLevel: 20, benchmark: userBenchmark[20] },
+            { maxLevel: Infinity, benchmark: userBenchmark[40] }
+        ];
+
+        // 从2级开始累乘计算
+        for (let level = 2; level <= lv; level++) {
+            // 确定当前等级使用的基准
+            let currentBenchmark = null;
+            for (const stage of levelStages) {
+                if (level <= stage.maxLevel) {
+                    currentBenchmark = stage.benchmark;
+                    break;
                 }
             }
-        })
-        return temp
+            if (!currentBenchmark) continue;
+
+            // 应用属性累乘增长
+            temp.maxExp *= currentBenchmark.maxExp;
+            temp.maxHp *= currentBenchmark.maxHp;
+            temp.maxMp *= currentBenchmark.maxMp;
+            temp.atk *= currentBenchmark.atk;
+            temp.def *= currentBenchmark.def;
+            temp.chr *= currentBenchmark.chr;
+            temp.evasion *= currentBenchmark.evasion;
+            temp.hit *= currentBenchmark.hit;
+            temp.ghd *= currentBenchmark.ghd;
+            temp.speed *= currentBenchmark.speed;
+        }
+
+        // 确保当前HP和MP不超过最大值
+        temp.hp = Math.floor(temp.hp);
+        temp.mp = Math.floor(temp.mp);
+
+        // 取整处理
+        temp.maxExp = Math.floor(temp.maxExp);
+        temp.maxHp = Math.floor(temp.maxHp);
+        temp.maxMp = Math.floor(temp.maxMp);
+        temp.atk = Math.floor(temp.atk);
+        temp.def = Math.floor(temp.def);
+        temp.chr = Math.floor(temp.chr);
+        temp.evasion = Math.floor(temp.evasion);
+        temp.hit = Math.floor(temp.hit);
+        temp.ghd = Math.floor(temp.ghd);
+        temp.speed = Math.round(temp.speed);
+
+        return temp;
     },
     /** 通过 userId 获取角色属性 */
     getUserAttributeByUserId(userId: string) {
@@ -296,6 +351,7 @@ export const User = {
         } as DatabaseUserAttribute
         User.ctx.database.create('smm_gensokyo_user_attribute', temp)
         User.userTempData[session.userId] = temp as DatabaseUserAttribute
+        User.userNameTemp[temp.playName] = temp.userId
         await Props.initUserPropsData(session.userId) // 道具信息写入
         await session.send('创建成功！\n' + User.userAttributeTextFormat(session.userId))
     },
@@ -317,7 +373,7 @@ export const User = {
             `【防御力】${temp.def} (+0)\n` +
             `【速度值】${temp.speed} (+0)\n` +
             `【闪避值】${temp.evasion} (+0)\n` +
-            `【命中率】${(temp.hit / 10 + 100).toFixed(1)}% (+0%)\n` +
+            `【命中率】${((100 + (temp.hit - 1000) / 10)).toFixed(1)}% (+0%)\n` +
             `【暴击率】${(temp.chr / 10).toFixed(1)}% (+0%)\n` +
             `【暴击伤害】${(temp.ghd * 100).toFixed(1)}% (+0%)` +
             (temp.csr > 0 ? `\n【暴击抵抗】${temp.csr}` : '')

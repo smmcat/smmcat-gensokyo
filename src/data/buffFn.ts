@@ -1,5 +1,6 @@
 import { BattleAttribute, BuffGain, getLineupName } from "../battle";
 import { BuffDamage, giveCure } from "../damage";
+import { random } from "../utlis";
 
 
 export enum BuffType {
@@ -24,7 +25,7 @@ interface DeBuffParams {
 interface ImprintBuffParams {
     type: BuffType.印记,
     key: string,
-    data: any
+    data?: any
 }
 
 interface ControlBuffParams {
@@ -58,11 +59,21 @@ interface BuffConfig<T extends BuffType = BuffType> {
     type: T;
     /** 被动说明 */
     info: string;
+    /** 印记 */
+    key?: string,
     /** 被动函数 */
+    initFn?(
+        agent: BattleAttribute,
+        cb?: (val: Extract<BuffItemParams, { type: T }>) => void
+    ): void;
     fn(
         agent: BattleAttribute,
         cb?: (val: Extract<BuffItemParams, { type: T }>) => void
     ): void;
+    cureFn?(
+        agent: BattleAttribute,
+        cb?: (val: Extract<BuffItemParams, { type: T }>) => void
+    ): string;
 }
 
 type BuffFnList = {
@@ -119,6 +130,17 @@ export const BuffFn: BuffFnList = {
             })
         }
     },
+    "沉默": {
+        name: "沉默",
+        type: BuffType.控制,
+        info: "该回合将只能进行普攻",
+        fn: function (agent: BattleAttribute, fn?) {
+            fn && fn({
+                type: BuffType.控制,
+                name: this.name
+            })
+        }
+    },
     "强壮": {
         name: "强壮",
         type: BuffType.增益,
@@ -159,6 +181,33 @@ export const BuffFn: BuffFnList = {
                 }
             })
         }
+    },
+    "咒": {
+        name: "咒",
+        type: BuffType.印记,
+        info: "拥有三个咒，目标玩家将即死",
+        key: 'curse-buff',
+        initFn: function (agent: BattleAttribute, fn?) {
+            if (!agent.expand['curse-buff']) agent.expand['curse-buff'] = { val: 0 }
+            agent.expand['curse-buff'].val++
+        },
+        cureFn: function (agent: BattleAttribute, fn?) {
+            if (random(0, 1)) {
+                clearImprint(agent, { name: '咒' })
+                return ` 治疗状态下 ⌈咒⌋ 被成功驱散`
+            } else {
+                return ``
+            }
+        },
+        fn: function (agent: BattleAttribute, fn?) {
+            fn && fn({
+                type: BuffType.印记,
+                key: 'curse-buff',
+                data: {
+                    msg: `印记 ⌈咒⌋ 存在${agent.expand['curse-buff'].val}个`
+                }
+            })
+        }
     }
 }
 
@@ -166,11 +215,41 @@ export const BuffFn: BuffFnList = {
 export function giveBuff(agent: BattleAttribute, buff: { name: string, timer: number }) {
     const buffInfo = BuffFn[buff.name] || null
     if (!buffInfo) return
+    if (buffInfo.type == BuffType.印记) {
+        buffInfo.initFn?.(agent)
+    }
     let again = false
     if (agent.buff[buff.name]) again = true
     agent.buff[buff.name] = buff
     const dict = { 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹' }
-    return `${getLineupName(agent)}被挂上了${buff.name}${dict[buff.timer] || '⁺'}`
+    return again ? `${getLineupName(agent)}被再次挂上了${buff.name}${dict[buff.timer] || '⁺'}` :
+        `${getLineupName(agent)}被挂上了${buff.name}${dict[buff.timer] || '⁺'}`
+}
+
+/** 清除目标指定BUFF */
+export function clearBuff(agent: BattleAttribute, buff: { name: string }) {
+    const buffInfo = BuffFn[buff.name] || null
+    if (!buffInfo) return
+    if (buffInfo.type == BuffType.印记) {
+        return { err: true, msg: '清除失败，印记无法被驱除' }
+    }
+    if (agent.buff[buff.name]) {
+        delete agent.buff[buff.name]
+        return { err: false, msg: `清除${buffInfo.name}成功！` }
+    }
+}
+
+/** 清除目标指定印记 */
+export function clearImprint(agent: BattleAttribute, buff: { name: string }) {
+    const buffInfo = BuffFn[buff.name] || null
+    if (!buffInfo) return
+    if (buffInfo.type !== BuffType.印记) {
+        return { err: true, msg: '清除失败，非印记' }
+    }
+    if (agent.buff[buff.name]) {
+        delete agent.buff[buff.name]
+        delete agent.expand[buffInfo.key]
+    }
 }
 
 export function settlementBuff(agent: BattleAttribute) {
@@ -186,8 +265,10 @@ export function settlementBuff(agent: BattleAttribute) {
     agent.gain.maxMp = 0
     agent.gain.speed = 0
     agent.gain.reduction = 0
+    agent.gain.TreatmentUp = 0
     agent.gain.dizziness = false
     agent.gain.chaos = false
+    agent.gain.silence = false
 
     const msgList = []
     const gainDict = {
@@ -215,7 +296,7 @@ export function settlementBuff(agent: BattleAttribute) {
             case BuffType.治疗:
                 buffInfo.fn(agent, (val: TreatmentBuffParams) => {
                     const value = giveCure(agent, val.val)
-                    msgList.push(`${buffInfo.name}+${value}HP`)
+                    msgList.push(`${buffInfo.name}+${value.val}HP。` + (value.buffMsg ? value.buffMsg : ''))
                 })
                 break;
             case BuffType.增益:
@@ -250,12 +331,16 @@ export function settlementBuff(agent: BattleAttribute) {
                 break;
             case BuffType.控制:
                 buffInfo.fn(agent, (val: ControlBuffParams) => {
-                    const control = { '晕眩': 'dizziness', '控制': 'chaos' }
+                    const control = { '晕眩': 'dizziness', '控制': 'chaos', '沉默': 'silence' }
                     if (!control[val.name]) return
                     agent.gain[control[val.name]] = true
-                    return `当前正在${val.name}中...`
+                    msgList.push(`当前正在${val.name}中...`)
                 })
                 break;
+            case BuffType.印记:
+                buffInfo.fn(agent, (val: ImprintBuffParams) => {
+                    msgList.push(val.data.msg)
+                })
             default:
                 break;
         }

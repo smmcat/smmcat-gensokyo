@@ -64,36 +64,62 @@ export const Monster = {
     getMonsterAttributeData(monsterName: string, lv: number) {
         const monster = Monster.monsterTempData[monsterName]
         if (!monster) return null
-        const temp = { lv } as MonsterBaseAttribute & { lv: number }
-        // 选择等级配置
-        const lvScope = Object.keys(monsterBenchmark).reverse().find((item) => Number(item) < lv) || 10
-        const useBenchmark = monsterBenchmark[lvScope]
-        console.log(useBenchmark);
+        const temp = { lv, ...monster } as MonsterBaseAttribute & { lv: number }
 
-        // 赋予等级叠加后的属性
-        Object.keys(monster).forEach((i) => {
-            temp[i] = monster[i]
-            if (useBenchmark[i]) {
-                const upVal = Math.floor((temp[i] * (useBenchmark[i] - 1) * (lv - 1)))
-                if (upVal > 0) {
-                    temp[i] += upVal
-                } else {
-                    // 特殊对待的值
-                    switch (i) {
-                        case 'hit':
-                            temp[i] += 20 * (lv - 1)
-                            break;
-                        default:
-                            break;
-                    }
+        // 如果等级为1，直接返回初始属性
+        if (lv <= 1) {
+            return temp;
+        }
+
+        // 定义等级阶段和对应的基准
+        const levelStages = [
+            { maxLevel: 10, benchmark: monsterBenchmark[10] },
+            { maxLevel: 20, benchmark: monsterBenchmark[20] },
+            { maxLevel: Infinity, benchmark: monsterBenchmark[40] }
+        ];
+
+        // 从2级开始累乘计算
+        for (let level = 2; level <= lv; level++) {
+            // 确定当前等级使用的基准
+            let currentBenchmark = null;
+            for (const stage of levelStages) {
+                if (level <= stage.maxLevel) {
+                    currentBenchmark = stage.benchmark;
+                    break;
                 }
             }
-        })
-        return temp
+            if (!currentBenchmark) continue;
+
+            // 应用属性累乘增长
+            temp.maxHp *= currentBenchmark.maxHp;
+            temp.maxMp *= currentBenchmark.maxMp;
+            temp.atk *= currentBenchmark.atk;
+            temp.def *= currentBenchmark.def;
+            temp.chr *= currentBenchmark.chr;
+            temp.evasion *= currentBenchmark.evasion;
+            temp.hit *= currentBenchmark.hit;
+            temp.ghd *= currentBenchmark.ghd;
+            temp.speed *= currentBenchmark.speed;
+        }
+
+        // 确保当前HP和MP不超过最大值
+        temp.hp = Math.floor(temp.maxHp);
+        temp.mp = Math.floor(temp.maxMp);
+        temp.maxHp = Math.floor(temp.maxHp);
+        temp.maxMp = Math.floor(temp.maxMp);
+        temp.atk = Math.floor(temp.atk);
+        temp.def = Math.floor(temp.def);
+        temp.chr = Math.floor(temp.chr);
+        temp.evasion = Math.floor(temp.evasion);
+        temp.hit = Math.floor(temp.hit);
+        temp.ghd = Math.floor(temp.ghd);
+        temp.speed = Math.round(temp.speed);
+
+        return temp;
     },
     /** 格式化怪物属性数据 */
     monsterAttributeTextFormat(monster: MonsterBaseAttribute & { lv: number }) {
-        const { name, type, lv, hp, maxHp, mp, maxMp, atk, def, chr, evasion, hit, ghd, speed, info, pic, giveProps } = monster
+        const { name, type, lv, hp, maxHp, mp, maxMp, atk, def, chr, evasion, hit, ghd, speed, info, pic, giveProps, passiveList } = monster
         const propsList = giveProps
             .filter((item) => item.lv ? lv >= item.lv : true)
             .map(item => item.name)
@@ -107,9 +133,10 @@ export const Monster = {
             `【防御力】${def}\n` +
             `【闪避值】${evasion}\n` +
             `【速度值】${speed}\n` +
-            `【命中率】${(hit / 10 + 100).toFixed(1)}%\n` +
+            `【命中率】${(100 + (hit - 1000) / 10).toFixed(1)}%\n` +
             `【暴击率】${(chr / 10).toFixed(1)}%\n` +
             `【爆伤倍率】${(ghd * 100).toFixed(0)}%` +
+            (passiveList.length ? `\n【被动技能】${passiveList.join('、')}` : '') +
             (propsList?.length ? `\n【概率掉落道具】` + propsList.join('、') : '') +
             (info ? '\n\n' + info : '')
         return attributeText

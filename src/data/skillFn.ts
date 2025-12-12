@@ -1,7 +1,7 @@
 import { BattleAttribute, getLineupName } from "../battle";
-import { Damage, DamageConfig, moreDamageInfo } from "../damage";
+import { baseMoreDamage, Damage, DamageConfig } from "../damage";
 import { getFreeList, random } from "../utlis";
-import { giveBuff } from "./buffFn";
+import { BuffFn, BuffType, clearBuff, clearImprint, giveBuff } from "./buffFn";
 
 export enum SkillType {
     释放失败 = '释放失败',
@@ -124,7 +124,7 @@ export const skillFn: SkillFn = {
                 target: [agent.goal],
                 isNext: false
             })
-            return `${getLineupName(agent.self)} 释放重砍，对 ${getLineupName(agent.goal)} 造成 ${damageData.harm} 伤害。` + moreDamageInfo(damageData)
+            return `${getLineupName(agent.self)} 释放重砍，对 ${getLineupName(agent.goal)} 造成 ${damageData.harm} 伤害。` + baseMoreDamage(damageData)
         }
     },
     "突刺": {
@@ -147,7 +147,7 @@ export const skillFn: SkillFn = {
                 target: [agent.goal],
                 isNext: false
             })
-            return `${getLineupName(agent.self)} 释放突刺，对 ${getLineupName(agent.goal)} 造成 ${damageData.harm} 伤害。` + moreDamageInfo(damageData)
+            return `${getLineupName(agent.self)} 释放突刺，对 ${getLineupName(agent.goal)} 造成 ${damageData.harm} 伤害。` + baseMoreDamage(damageData)
         }
     },
     "水炮": {
@@ -169,7 +169,7 @@ export const skillFn: SkillFn = {
                 target: [agent.goal],
                 isNext: false
             })
-            return `${getLineupName(agent.self)} 释放水炮，对 ${getLineupName(agent.goal)} 造成 ${damageData.harm} 伤害。` + moreDamageInfo(damageData)
+            return `${getLineupName(agent.self)} 释放水炮，对 ${getLineupName(agent.goal)} 造成 ${damageData.harm} 伤害。` + baseMoreDamage(damageData)
         }
     },
     "濒死一击": {
@@ -192,7 +192,7 @@ export const skillFn: SkillFn = {
                     target: [agent.goal],
                     isNext: false
                 })
-                return `${getLineupName(agent.self)} 释放濒死一击，对 ${getLineupName(agent.goal)} 造成 ${damageData.harm} 伤害。` + moreDamageInfo(damageData)
+                return `${getLineupName(agent.self)} 释放濒死一击，对 ${getLineupName(agent.goal)} 造成 ${damageData.harm} 伤害。` + baseMoreDamage(damageData)
             } else {
                 fn({
                     type: SkillType.释放失败,
@@ -241,7 +241,7 @@ export const skillFn: SkillFn = {
                 target: [agent.goal],
                 isNext: false
             })
-            return `${getLineupName(agent.self)} 进行垂死挣扎，对 ${getLineupName(agent.goal)} 造成 ${damageData.harm} 伤害。` + moreDamageInfo(damageData)
+            return `${getLineupName(agent.self)} 进行垂死挣扎，对 ${getLineupName(agent.goal)} 造成 ${damageData.harm} 伤害。` + baseMoreDamage(damageData)
         }
     },
     "治愈之光": {
@@ -288,7 +288,7 @@ export const skillFn: SkillFn = {
                     target: [goal]
                 })
                 msgList.push(`- 对 ${getLineupName(goal)} 造成 ${damageData.harm} 伤害。${useBuff ? '(中毒)' : ''}` +
-                    moreDamageInfo(damageData))
+                    baseMoreDamage(damageData))
             })
             return msgList.join('\n')
         }
@@ -320,7 +320,7 @@ export const skillFn: SkillFn = {
                 target: [agent.goal]
             })
             return `${getLineupName(agent.self)} 发动恐怖催眠术！对 ${getLineupName(agent.goal)} 造成 ${damageData.harm} 伤害。${useBuff ? '(晕眩)' : ''}` +
-                moreDamageInfo(damageData)
+                baseMoreDamage(damageData)
         }
     },
     "恐怖的回忆": {
@@ -336,6 +336,109 @@ export const skillFn: SkillFn = {
                 isNext: false
             })
             return `${getLineupName(agent.self)} 发动恐怖的回忆！对 ${getLineupName(agent.goal)} 附加了2回合破绽状态。`
+        }
+    },
+    "初级驱散": {
+        name: "初级驱散",
+        type: SkillType.治疗技,
+        info: '[治疗技]随机驱散目标1-2个负面BUFF，每个负面BUFF回复10%血量',
+        lv: 5,
+        mp: 40,
+        fn: function (agent, agentList, fn?) {
+            const selectGoal = agent.goal
+            if (selectGoal.hp <= 0) {
+                return `${getLineupName(agent.self)}已阵亡...`
+            }
+            const deBuffList = Object.keys(selectGoal.buff).filter((buff) => {
+                return [BuffType.减益, BuffType.伤害, BuffType.控制].includes(BuffFn[buff].type)
+            })
+
+            if (deBuffList.length) {
+                return `${getLineupName(agent.self)}释放初级驱散，对${getLineupName(selectGoal)}似乎没什么作用...`
+            }
+            let upVal = 0
+            const selectBuff = getFreeList(deBuffList).slice(0, random(1, 2))
+            selectBuff.forEach((buffName) => {
+                const type = clearBuff(selectGoal, { name: buffName })
+                !type.err && upVal++
+            })
+
+            let value = Math.floor(upVal * (selectGoal.maxHp * 0.1))
+            fn({
+                value,
+                target: [selectGoal],
+                type: SkillType.治疗技,
+                isNext: false
+            })
+            return `${getLineupName(agent.self)}释放初级驱散，${getLineupName(agent.goal)}被驱散了${upVal}个负面状态，并恢复${value}HP`
+        }
+    },
+    "紧闭的恋之瞳": {
+        name: "紧闭的恋之瞳",
+        type: SkillType.减益技,
+        info: '[减益技]怪物特有技能：为玩家目标添加5回合的⌈咒⌋印记，当对方持有3个⌈咒⌋印记，将直接死亡。⌈咒⌋可以有50%概率会被技能类型的治疗驱散',
+        lv: 5,
+        mp: 40,
+        fn: function (agent, agentList, fn?) {
+            if (agent.self.type == '玩家' || agent.goal.type == '怪物') {
+                fn({
+                    type: SkillType.释放失败,
+                    isNext: true,
+                    err: '释放失败，技能只能怪物指向玩家。'
+                })
+                return ``
+            }
+            giveBuff(agent.goal, { name: "咒", timer: 5 })
+            const key = BuffFn['咒'].key
+            fn({
+                type: SkillType.减益技,
+                isNext: false
+            })
+            // 条件达成时，目标即死
+            if (agent.goal.expand[key].val >= 3) {
+                agent.goal.hp = 0;
+                clearImprint(agent.goal, { name: '咒' })
+                return `${getLineupName(agent.self)}释放紧闭的恋之瞳，${getLineupName(agent.goal)}⌈咒⌋层达到3层，立即死亡!`
+            }
+            return `${getLineupName(agent.self)}释放紧闭的恋之瞳，${getLineupName(agent.goal)}⌈咒⌋层数${agent.goal.expand[key].val}层`
+        }
+    },
+    "无意识行动": {
+        name: "无意识行动",
+        type: SkillType.伤害技,
+        info: '[减益技]怪物特有技能：只有关闭恋の瞳的妖怪可用。造成(攻击1.5倍+自身闪避值5%)伤害，造成伤害有60%概率使其沉默2回合。',
+        lv: 5,
+        mp: 40,
+        fn: function (agent, agentList, fn?) {
+            if (agent.self.type == '玩家' || agent.goal.type == '怪物') {
+                fn({
+                    type: SkillType.释放失败,
+                    isNext: true,
+                    err: '释放失败，技能只能怪物指向玩家。'
+                })
+                return ``
+            }
+            let useBuff = false
+            const damageData = new Damage(agent).result({
+                before: ((val) => {
+                    val.default_harm += Math.floor(val.default_harm * 0.2) +
+                        Math.floor((val.agent.self.speed + val.agent.self.gain.speed) * 0.05)
+                }),
+                beforEnd: ((val) => {
+                    if (val.harm && random(0, 10) < 6) {
+                        useBuff = true
+                        giveBuff(agent.goal, { name: "沉默", timer: 3 })
+                    }
+                })
+            })
+            fn({
+                type: SkillType.伤害技,
+                damage: damageData,
+                isNext: false,
+                target: [agent.goal]
+            })
+            return `${getLineupName(agent.self)} 发动无意识行动！对 ${getLineupName(agent.goal)} 造成 ${damageData.harm} 伤害。${useBuff ? '(沉默)' : ''}` +
+                baseMoreDamage(damageData)
         }
     }
 };

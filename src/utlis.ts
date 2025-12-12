@@ -2,18 +2,21 @@ export const random = (min: number, max: number): number => {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 /** 血量可视化 */
-export const generateHealthDisplay = (current: number, total: number): string => {
-    const ratio = current / total;
+export const generateHealthDisplay = (current: number, total: number) => {
     const displayLength = 10;
-    const filledLength = Math.floor(ratio * displayLength);
+    const filledChar = "■";
+    const unfilledChar = "□";
+    const clampedCurrent = Math.max(0, Math.min(current, total));
+    const ratio = clampedCurrent / total;
+    const filledLength = Math.max(0, Math.min(Math.floor(ratio * displayLength), displayLength));
     const unfilledLength = displayLength - filledLength;
-
-    const filled = "■".repeat(filledLength);
-    const unfilled = "□".repeat(unfilledLength);
-    return filled + unfilled;
+    const filled = filledChar.repeat(filledLength);
+    const unfilled = unfilledChar.repeat(unfilledLength);
+    return `${filled}${unfilled}`;
 }
 
 
+/** 打乱数组 */
 export const getFreeList = (arr: any[]): any[] => {
     //临时数组，用于存值
     let arrAdd = [...arr];

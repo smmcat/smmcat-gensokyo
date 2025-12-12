@@ -9,6 +9,8 @@ import { AsyncOperationQueue, random } from './utlis';
 import { skillFn } from './data/skillFn';
 import { Props } from './props';
 import { generateMapHTML } from './mapHtml';
+import { PassiveFn } from './data/PassiveFn';
+import { BuffFn } from './data/buffFn';
 export const name = 'smmcat-gensokyo'
 
 export const inject = {
@@ -312,10 +314,23 @@ export function apply(ctx: Context, config: Config) {
     .action(async ({ session }, goal) => {
       if (!goal) return `请输入技能名，例如 /技能查询 重砍`
       if (!skillFn[goal]) return `没有存在 ${goal} 技能！`
-      return `[${goal}]信息如下：\n` + skillFn[goal].info
+      return `[${goal}]信息如下：\n` + skillFn[goal].info + `\n消耗MP：${skillFn[goal].mp}`
     })
 
-
+  ctx
+    .command('幻想乡/被动查询 <goal>')
+    .action(async ({ session }, goal) => {
+      if (!goal) return `请输入被动名，例如 /被动查询 吸血`
+      if (!PassiveFn[goal]) return `没有存在 ${goal} 被动！`
+      return `[${goal}]信息如下：\n` + PassiveFn[goal].info
+    })
+  ctx
+    .command('幻想乡/状态查询 <goal>')
+    .action(async ({ session }, goal) => {
+      if (!goal) return `请输入技能名，例如 /状态查询 治愈`
+      if (!BuffFn[goal]) return `没有存在 ${goal} 状态！`
+      return `[${goal}]信息如下：\n` + BuffFn[goal].info
+    })
   const temp = {}
   ctx
     .command('幻想乡/补给')
@@ -372,7 +387,7 @@ export function apply(ctx: Context, config: Config) {
       const team = BattleData.teamListByUser(session.userId)
       if (!team.length) return `你还没有队伍...`
       return `当前队伍信息如下：\n` +
-        team.map((item) => `lv.${item.lv} ${item.playName} [${BattleData.teamTemp[item.userId].identity}]`).join('\n')
+        team.map((item) => `lv.${item.lv} ${item.playName} [${BattleData.teamTemp[item.userId].identity}] 【${item.duties}】`).join('\n')
     })
   ctx
     .command('队伍操作/队伍邀请 <playName>')
@@ -429,6 +444,31 @@ export function apply(ctx: Context, config: Config) {
     })
 
   ctx
+    .command('队伍操作/队伍职责')
+    .action(async ({ session }) => {
+      const userData = await User.getUserAttribute(session)
+      if (!userData) return
+      GensokyoMap.initUserPoistion(session, userData)
+      await BattleData.getTeamDuties(session)
+    })
+
+  ctx
+    .command('队伍操作/队伍调整 <goal> <type>')
+    .action(async ({ session }, goal, type) => {
+      const userData = await User.getUserAttribute(session)
+      if (!userData) return
+      GensokyoMap.initUserPoistion(session, userData)
+      if (!(goal && type)) {
+        return `请携带队伍中成员的名字和职责进行操作！\n例如 /队伍调整 张三 前排`
+      }
+      if (!['前排', '后排'].includes(type)) {
+        return `设置失败，目前只有 前排 和 后排职责。`
+      } else {
+        await BattleData.settingTeamDuties(session, goal, type as '前排' | '后排')
+      }
+    })
+
+  ctx
     .command('幻想乡/地图')
     .action(async ({ session }) => {
       const userData = await User.getUserAttribute(session)
@@ -446,6 +486,36 @@ export function apply(ctx: Context, config: Config) {
   ctx
     .command('幻想乡/打怪逃跑')
     .action(async ({ session }) => {
+      const userData = await User.getUserAttribute(session)
+      if (!userData) return
       await Queue.add(async () => await BattleData.battleEscape(session))
+    })
+
+  ctx
+    .command('幻想乡/传送 <floor:posint>')
+    .action(async ({ session }, floor) => {
+      const userData = await User.getUserAttribute(session)
+      if (!userData) return
+
+      GensokyoMap.initUserPoistion(session, userData)
+      if (BattleData.isBattle(session)) {
+        await session.send('您正在战斗中，无法移动！')
+        return
+      }
+
+      if (BattleData.isTeam(session) && BattleData.teamTemp[session.userId].identity !== '队长') {
+        return `你在队伍中，请等待队长选择移动的位置！`
+      }
+
+      if (User.isDie(session.userId)) {
+        return `你已经阵亡，请发送 /补给 进行治疗。`
+      }
+      if (GensokyoMap.getUserCurrentArea(session.userId).type !== AreaType.传送门) {
+        return '该区域未存在传送门建筑，传送失败！'
+      }
+      GensokyoMap.jumpFloor(session, floor, async (val) => {
+        await session.send(`传送到${floor}层成功！`)
+        await session.send(GensokyoMap.userAreaTextFormat(val.user.playName, val))
+      })
     })
 }

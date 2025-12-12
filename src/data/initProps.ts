@@ -35,6 +35,23 @@ export const propsData: propsTemplateData = {
             })
         }
     },
+    "大红药": {
+        name: "大红药",
+        type: PropType.消耗类,
+        info: '回复自身(120HP+5%最高血量上限)HP',
+        price: 10,
+        fn: async function (session) {
+            const { maxHp } = User.getUserAttributeByUserId(session.userId)
+            User.giveHPMP(session.userId, { hp: Math.floor(120 + maxHp * 0.05) }, async (val) => {
+                if (val.err) {
+                    await session.send(val.err)
+                    return
+                }
+                const msg = `回复成功，玩家当前血量：${val.currentHP}`
+                await session.send(msg)
+            })
+        }
+    },
     "蓝药": {
         name: "蓝药",
         type: PropType.消耗类,
