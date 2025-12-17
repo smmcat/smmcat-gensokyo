@@ -279,9 +279,9 @@ export const GensokyoMap = {
                     needLv: 1,
                     left: "绿野平原四",
                     top: "绿野平原三",
-                    monster: [{ name: "绿毒蛇", lv: 12 }]
+                    monster: [{ name: "绿毒蛇", lv: 32 }]
                 },
-                "野猪巢穴": {
+                "野猪巢穴": { 
                     floor: 1,
                     areaName: "野猪巢穴",
                     type: AreaType.BOSS区,
@@ -345,7 +345,10 @@ export const GensokyoMap = {
                     areaName: "2层-商店",
                     type: AreaType.安全区,
                     needLv: 1,
-                    right: "大草场"
+                    top: "旅馆",
+                    left: "希望之泉",
+                    right: "大草场",
+                    down: "银行"
                 },
                 "大草场": {
                     floor: 2,
@@ -361,7 +364,64 @@ export const GensokyoMap = {
                     type: AreaType.BOSS区,
                     needLv: 1,
                     left: "大草场",
+                    top: "宁静森林二",
+                    down: "咆哮森林",
                     monster: [{ name: '古明地恋', lv: 25 }]
+                },
+                "宁静森林二": {
+                    floor: 2,
+                    areaName: "宁静森林二",
+                    type: AreaType.冒险区,
+                    needLv: 1,
+                    top: "宁静部落",
+                    down: "森林岔口",
+                    monster: [{ name: "白洲梓", lv: 20 }]
+                },
+                "宁静部落": {
+                    floor: 2,
+                    areaName: "宁静部落",
+                    type: AreaType.冒险区,
+                    needLv: 1,
+                    top: "勇者祭坛",
+                    down: "宁静森林二"
+                },
+                "勇者祭坛": {
+                    floor: 2,
+                    areaName: "勇者祭坛",
+                    type: AreaType.冒险区,
+                    needLv: 1,
+                    down: "宁静部落"
+                },
+                "咆哮森林": {
+                    floor: 2,
+                    areaName: "咆哮森林",
+                    type: AreaType.冒险区,
+                    needLv: 1,
+                    top: "森林岔口",
+                    down: "咆哮森林二"
+                },
+                "咆哮森林二": {
+                    floor: 2,
+                    areaName: "咆哮森林二",
+                    type: AreaType.冒险区,
+                    needLv: 1,
+                    top: "咆哮森林",
+                    down: "咆哮营地"
+                },
+                "咆哮营地": {
+                    floor: 2,
+                    areaName: "咆哮营地",
+                    type: AreaType.冒险区,
+                    needLv: 1,
+                    top: "咆哮森林二",
+                    down: "竞技场"
+                },
+                "竞技场": {
+                    floor: 2,
+                    areaName: "竞技场",
+                    type: AreaType.冒险区,
+                    needLv: 1,
+                    top: "咆哮营地"
                 }
             }
         }

@@ -241,7 +241,7 @@ export const monsterData: MonsterTempData = {
         speed: 5,
         giveExp: 16,
         giveMonetary: 5,
-        passiveList: [],
+        passiveList: ['剧毒'],
         giveProps: [
             { name: '初级复活卷轴', val: 1, radomVal: 50 }
         ],
@@ -296,5 +296,30 @@ export const monsterData: MonsterTempData = {
             { name: '大红药', val: 2, radomVal: 50 }
         ],
         fn: [{ name: '紧闭的恋之瞳', prob: 3 }, { name: "初级驱散", prob: 1 }, { name: '无意识行动', prob: 2 }]
+    },
+    "白洲梓": {
+        name: "白洲梓",
+        type: MonsterOccupation.野怪,
+        info: '基沃托斯中圣三一综合学园所属，补习部的冰之魔女。',
+        pic: "http://smmcat.cn/run/gensokyo/白洲梓.png",
+        hp: 100,
+        maxHp: 100,
+        mp: 70,
+        maxMp: 70,
+        atk: 20,
+        def: 2,
+        chr: 150,
+        csr: 0,
+        evasion: 100,
+        hit: 1100,
+        ghd: 1.3,
+        speed: 5,
+        giveExp: 16,
+        giveMonetary: 3,
+        passiveList: ['针女'],
+        giveProps: [
+            { name: '大红药', val: 2, radomVal: 20 }, { name: '初级复活卷轴', val: 1, radomVal: 50 }
+        ],
+        fn: [{ name: '瓦尼瓦尼', prob: 1 }]
     }
 }

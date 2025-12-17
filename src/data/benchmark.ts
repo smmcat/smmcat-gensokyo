@@ -63,7 +63,7 @@ export const monsterBenchmark: MonsterBenchmark = {
         chr: 1.1,
         evasion: 1.1,
         hit: 1.01,
-        ghd: 1.0, 
+        ghd: 1.005, 
         speed: 1.05
     },
     20: {
@@ -76,7 +76,7 @@ export const monsterBenchmark: MonsterBenchmark = {
         chr: 1.08,
         evasion: 1.008,
         hit: 1.008,
-        ghd: 1.0,
+        ghd: 1.004,
         speed: 1.05
     },
     40: {
@@ -89,7 +89,7 @@ export const monsterBenchmark: MonsterBenchmark = {
         chr: 1.05,
         evasion: 1.005,
         hit: 1.005,
-        ghd: 1.05,
+        ghd: 1.003,
         speed: 1.05
     }
 }

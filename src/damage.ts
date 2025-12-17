@@ -138,7 +138,7 @@ class Damage {
         }
         fn && fn(this.config)
         // 是否存在攻击类型被动技能
-        if (this.config.linkAgent.self.passiveList?.length) {
+        if (!this.config.isRealHarm && this.config.linkAgent.self.passiveList?.length) {
             this.config.linkAgent.self.passiveList.forEach((passiveName) => {
                 if (PassiveFn[passiveName].type == 'atk') {
                     const msg = PassiveFn[passiveName].damageFn(this.config)
@@ -195,7 +195,7 @@ class BuffDamage {
 /** 给予目标伤害 */
 function giveDamage(self: BattleAttribute, goal: BattleAttribute, damage: DamageConfig) {
     // 是否存在防御类被动技能
-    if (damage.linkAgent.goal.passiveList?.length) {
+    if (!damage.isRealHarm && damage.linkAgent.goal.passiveList?.length) {
         damage.linkAgent.goal.passiveList.forEach((passiveName) => {
             if (PassiveFn[passiveName].type == 'hit') {
                 const msg = PassiveFn[passiveName].damageFn(damage)

@@ -293,7 +293,7 @@ export const User = {
         temp.chr = Math.floor(temp.chr);
         temp.evasion = Math.floor(temp.evasion);
         temp.hit = Math.floor(temp.hit);
-        temp.ghd = Math.floor(temp.ghd);
+        temp.ghd = parseFloat(temp.ghd.toFixed(1));
         temp.speed = Math.round(temp.speed);
 
         return temp;

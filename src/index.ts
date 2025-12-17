@@ -207,6 +207,10 @@ export function apply(ctx: Context, config: Config) {
     .action(async ({ session }, monster, lv) => {
       if (!monster) return `请输入要查询的怪物！`
       if (!lv) lv = 1
+      if (lv > 60) {
+        await session.send(`抱歉，目前最高只能查询怪物 lv60 级的属性`)
+        lv = 60
+      }
       const result = Monster.getMonsterAttributeData(monster, lv)
       if (!result) return `没有找到该怪物信息...`
       return Monster.monsterAttributeTextFormat(result)
@@ -243,6 +247,9 @@ export function apply(ctx: Context, config: Config) {
         const selectMonster = areaInfo.monster.find(i => i.name == goal)
         await BattleData.createBattleByMonster(session, [selectMonster])
       } else {
+        if (!areaInfo.monster?.length) {
+          return `没有在该区域找到任何怪物。`
+        }
         const selectMonster = areaInfo.monster
         await Queue.add(async () => await BattleData.createBattleByMonster(session, selectMonster))
       }

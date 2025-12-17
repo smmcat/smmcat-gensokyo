@@ -440,5 +440,59 @@ export const skillFn: SkillFn = {
             return `${getLineupName(agent.self)} 发动无意识行动！对 ${getLineupName(agent.goal)} 造成 ${damageData.harm} 伤害。${useBuff ? '(沉默)' : ''}` +
                 baseMoreDamage(damageData)
         }
+    },
+    "瓦尼瓦尼": {
+        name: "瓦尼瓦尼",
+        type: SkillType.伤害技,
+        info: '[伤害技]怪物特有技能：对目标使用Intulit Mortem（瓦尼瓦尼）。造成连续两次并后续每次都会有40%概率追加单体攻击的伤害。每次攻击造成(40%攻击力+5%自身剩余MP)的伤害。',
+        lv: 5,
+        mp: 60,
+        fn: function (agent, agentList, fn?) {
+            if (agent.self.type == '玩家' || agent.goal.type == '怪物') {
+                fn({
+                    type: SkillType.释放失败,
+                    isNext: true,
+                    err: '释放失败，技能只能怪物指向玩家。'
+                })
+                return ``
+            }
+            const msgList = [`${getLineupName(agent.self)}对${getLineupName(agent.goal)}释放Intulit Mortem！`]
+
+            // 固定伤害
+            for (let index = 0; index < 2; index++) {
+                const damageData = new Damage(agent).result({
+                    before: ((val) => {
+                        val.default_harm = Math.floor((agent.self.atk + agent.self.gain.atk) * 0.4) +
+                            Math.floor(agent.self.mp * 0.05)
+                    })
+                })
+                fn({
+                    type: SkillType.伤害技,
+                    damage: damageData,
+                    isNext: false,
+                    target: [agent.goal]
+                })
+                msgList.push(`- ${getLineupName(agent.goal)} 受到 ${damageData.harm} 伤害。` +
+                    baseMoreDamage(damageData))
+            }
+            // 追加伤害
+            while (random(0, 10) <= 4 && agent.goal.hp > 0) {
+                const damageData = new Damage(agent).result({
+                    before: ((val) => {
+                        val.default_harm = Math.floor((agent.self.atk + agent.self.gain.atk) * 0.3) +
+                            Math.floor(agent.self.mp * 0.05)
+                    })
+                })
+                fn({
+                    type: SkillType.伤害技,
+                    damage: damageData,
+                    isNext: false,
+                    target: [agent.goal]
+                })
+                msgList.push(`- ${getLineupName(agent.goal)} 受到 ${damageData.harm} 伤害。` +
+                    baseMoreDamage(damageData))
+            }
+            return msgList.join('\n')
+        }
     }
 };

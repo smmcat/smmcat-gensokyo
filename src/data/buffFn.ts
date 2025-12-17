@@ -61,15 +61,17 @@ interface BuffConfig<T extends BuffType = BuffType> {
     info: string;
     /** 印记 */
     key?: string,
-    /** 被动函数 */
+    /** 附着时触发 */
     initFn?(
         agent: BattleAttribute,
         cb?: (val: Extract<BuffItemParams, { type: T }>) => void
     ): void;
+    /** 结算时触发 */
     fn(
         agent: BattleAttribute,
         cb?: (val: Extract<BuffItemParams, { type: T }>) => void
     ): void;
+    /** 被治疗时触发 */
     cureFn?(
         agent: BattleAttribute,
         cb?: (val: Extract<BuffItemParams, { type: T }>) => void
@@ -211,19 +213,23 @@ export const BuffFn: BuffFnList = {
     }
 }
 
+/** BUFF状态持续时间格式化 */
+export function buffTimeFormat(time: number) {
+    const dict = { 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹' }
+    return dict[time] || '⁺'
+}
+
 /** 为目标添加BUFF */
 export function giveBuff(agent: BattleAttribute, buff: { name: string, timer: number }) {
     const buffInfo = BuffFn[buff.name] || null
     if (!buffInfo) return
-    if (buffInfo.type == BuffType.印记) {
-        buffInfo.initFn?.(agent)
-    }
+    buffInfo.initFn?.(agent)
     let again = false
     if (agent.buff[buff.name]) again = true
     agent.buff[buff.name] = buff
     const dict = { 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹' }
-    return again ? `${getLineupName(agent)}被再次挂上了${buff.name}${dict[buff.timer] || '⁺'}` :
-        `${getLineupName(agent)}被挂上了${buff.name}${dict[buff.timer] || '⁺'}`
+    return again ? `${getLineupName(agent)}被再次挂上了${buff.name}${buffTimeFormat(buff.timer)}` :
+        `${getLineupName(agent)}被挂上了${buff.name}${buffTimeFormat(buff.timer)}`
 }
 
 /** 清除目标指定BUFF */
