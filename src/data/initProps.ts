@@ -104,5 +104,26 @@ export const propsData: propsTemplateData = {
                 await session.send(`复活成功，当前血量：${val.currentHP}`)
             })
         }
+    },
+    "中级复活卷轴": {
+        name: "中级复活卷轴",
+        type: PropType.消耗类,
+        info: '复活玩家，复活时保留 80% 血量。(该道具使用完需要冷却 6 分钟)',
+        price: 120,
+        cooling: 3600,
+        fn: async function (session) {
+            if (BattleData.isBattleByUserId(session.userId)) {
+                session.send(`该道具在战斗中无法使用！请在小队脱离战斗后使用。`)
+                return { err: true }
+            }
+            if (!User.isDie(session.userId)) {
+                session.send(`您还没有阵亡，使用失败！`)
+                return { err: true }
+            }
+            const { maxHp } = User.getUserAttributeByUserId(session.userId)
+            User.giveLife(session.userId, Math.floor(maxHp * 0.8), async (val) => {
+                await session.send(`复活成功，当前血量：${val.currentHP}`)
+            })
+        }
     }
 }

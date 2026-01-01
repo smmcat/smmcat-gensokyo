@@ -281,7 +281,7 @@ export const GensokyoMap = {
                     top: "绿野平原三",
                     monster: [{ name: "绿毒蛇", lv: 32 }]
                 },
-                "野猪巢穴": { 
+                "野猪巢穴": {
                     floor: 1,
                     areaName: "野猪巢穴",
                     type: AreaType.BOSS区,
@@ -421,7 +421,8 @@ export const GensokyoMap = {
                     areaName: "竞技场",
                     type: AreaType.冒险区,
                     needLv: 1,
-                    top: "咆哮营地"
+                    top: "咆哮营地",
+                    monster: [{ name: "星见雅", lv: 30 }]
                 }
             }
         }

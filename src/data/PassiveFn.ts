@@ -93,24 +93,17 @@ export const PassiveFn: PassiveDict = {
             return ``
         }
     },
-    "剧毒": {
-        name: "剧毒",
-        info: "造成伤害时有20%概率为目标附加中毒状态2回合，对已在中毒状态的目标 80% 概率直接催化中毒（结算剩余中毒总计伤害）",
+    "霜灼破": {
+        name: "霜灼破",
+        info: "造成伤害时有 20% 概率为自身增加1点 ⌈落霜⌋ 印记，每层 ⌈落霜⌋ 印记增加 5% 攻击力，持续6回合",
         type: 'atk',
         damageFn: function (config) {
-            if (config.linkAgent.goal.buff['中毒'] && random(0, 10) <= 8) {
-                const timeVal = config.linkAgent.goal.buff['中毒'].timer
-                clearBuff(config.linkAgent.goal, { name: "中毒" })
-                const upDamage = Math.min(20, Math.floor((config.agent.goal.maxHp + config.agent.goal.maxHp) * 0.05) || 1) * timeVal
-                const value = new BuffDamage(upDamage, config.linkAgent.goal, true).giveDamage()
-                return `‣ ${getLineupName(config.linkAgent.self)}触发被动 ¦${this.name}¦ 催化中毒${buffTimeFormat(timeVal)} 目标HP-${value}`
-            } else {
-                if (random(0, 10) <= 2) {
-                    giveBuff(config.linkAgent.goal, { name: "中毒", timer: 2 })
-                    return `‣ ${getLineupName(config.linkAgent.self)}触发被动 ¦${this.name}¦ 附着2回合⌈中毒⌋`
-                }
-                return ``
+            if (random(0, 10) <= 2) {
+                giveBuff(config.linkAgent.self, { name: "落霜", timer: 6 })
+                return `‣ ${getLineupName(config.linkAgent.self)}触发被动 ¦${this.name}¦ 获得1点落霜`
             }
+            return ``
         }
-    }
+    },
+
 }

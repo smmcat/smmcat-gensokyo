@@ -749,24 +749,7 @@ export const BattleData = {
             let val = 0
             // 获得怪物货币总值
             let monetary = 0
-            let props = [] as { name: string, val: number }[]
-            const monsterName = tempData.goal.filter((item) => item.type == '怪物').map(i => ({ name: i.name, lv: i.lv }))
-            monsterName.forEach((item) => {
-                const monster = Monster.monsterTempData[item.name]
-                if (monster) {
-                    val += Math.floor(monster.giveExp + (monster.giveExp * (item.lv - 1) * 0.2))
-                    monetary += Math.floor(monster.giveMonetary + (monster.giveExp * (item.lv - 1) * 0.1))
-                    // 是否存在掉落奖励？
-                    monster.giveProps?.forEach((propsItem) => {
-                        if (item.lv >= (propsItem.lv || 1) && random(0, 100) < propsItem.radomVal) {
-                            props.push({
-                                name: propsItem.name,
-                                val: propsItem.const ? propsItem.val : random(1, propsItem.val)
-                            })
-                        }
-                    })
-                }
-            })
+            const resMsg = []
 
             if (overInfo.win == 'self') {
                 await session.send(`小队获得${val}EXP、${monetary}货币！`)
@@ -776,6 +759,26 @@ export const BattleData = {
                 if (overInfo.win == 'self') {
                     await User.giveExp(agent.userId, val, async (val) => await msg(val))
                     await User.giveMonetary(agent.userId, monetary)
+                    let props = [] as { name: string, val: number }[]
+
+                    // 道具获取 独立计算
+                    const monsterName = tempData.goal.filter((item) => item.type == '怪物').map(i => ({ name: i.name, lv: i.lv }))
+                    monsterName.forEach((item) => {
+                        const monster = Monster.monsterTempData[item.name]
+                        if (monster) {
+                            val += Math.floor(monster.giveExp + (monster.giveExp * (item.lv - 1) * 0.2))
+                            monetary += Math.floor(monster.giveMonetary + (monster.giveExp * (item.lv - 1) * 0.1))
+                            // 是否存在掉落奖励？
+                            monster.giveProps?.forEach((propsItem) => {
+                                if (item.lv >= (propsItem.lv || 1) && random(0, 100) < propsItem.radomVal) {
+                                    props.push({
+                                        name: propsItem.name,
+                                        val: propsItem.const ? propsItem.val : random(1, propsItem.val)
+                                    })
+                                }
+                            })
+                        }
+                    })
                     props.length && await User.giveProps(agent.userId, props, async (val) => {
                         const propsDict = {}
                         val.currentProps.forEach((item) => {
@@ -785,10 +788,11 @@ export const BattleData = {
                         const msg = Object.keys(propsDict).map((item) => {
                             return `${item} ${propsDict[item]}个`
                         }).join('\n')
-                        await session.send(`${agent.name}在战斗中获得：` + msg)
+                        resMsg.push(`${agent.name}在战斗中获得：` + msg)
                     })
                 }
             }
+            await session.send(resMsg.join('\n'))
         }
     }
 }

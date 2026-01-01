@@ -494,5 +494,86 @@ export const skillFn: SkillFn = {
             }
             return msgList.join('\n')
         }
+    },
+    "霜月架势": {
+        name: "霜月架势",
+        type: SkillType.伤害技,
+        info: '将收刀进入 霜月架势 并开始蓄力，对目标全体（最大4名）造成 200%基础攻击力 伤害。触发技能前记录当前所有 ⌈落霜⌋ 印记，每消耗1个 ⌈落霜⌋ 印记，该次伤害增加20%，当消耗达到6印记时，有 60% 概率对目标添加 2回合 ⌈破绽⌋ 状态',
+        lv: 10,
+        mp: 120,
+        fn: function (agent, agentList, fn?) {
+            if (agent.goal.type == '怪物' && agent.self.expand['frost-buff']?.val <= 4) {
+                fn({
+                    type: SkillType.释放失败,
+                    isNext: true,
+                    err: ''
+                })
+                return ``
+            }
+            // 确认伤害总额
+            let useAtk = Math.floor(agent.self.atk * 2)
+            useAtk += Math.floor(useAtk * 0.2 * (agent.self.expand['frost-buff']?.val || 0))
+
+            // 筛选目标
+            const goalList = getFreeList(agentList.goalList).slice(0, 4).filter(i => i) as BattleAttribute[]
+            const msgList = [`${getLineupName(agent.self)}释放了群体技能霜月架势！`]
+
+            // 依次结算
+            goalList.forEach((goal) => {
+                let useBuff = false
+                const damageData = new Damage({ self: agent.self, goal }).result({
+                    before: ((val) => {
+                        val.default_harm = useAtk
+                    }),
+                    beforEnd: ((val) => {
+                        if (val.harm && agent.self.expand['frost-buff']?.val == 6 && random(0, 10) < 6) {
+                            useBuff = true
+                            giveBuff(goal, { name: "破绽", timer: 2 })
+                        }
+                    })
+                })
+                fn({
+                    type: SkillType.伤害技,
+                    damage: damageData,
+                    isNext: false,
+                    target: [goal]
+                })
+                msgList.push(`- 对 ${getLineupName(goal)} 造成 ${damageData.harm} 伤害。${useBuff ? '(破绽)' : ''}` +
+                    baseMoreDamage(damageData))
+            })
+            clearImprint(agent.self, { name: "落霜" })
+            return msgList.join('\n')
+        }
+    },
+    "飞雪": {
+        name: "飞雪",
+        type: SkillType.伤害技,
+        info: '快速突进，对单个目标发动强力斩击，造成1.3倍伤害。造成伤害时获得2层 ⌈落霜⌋ 印记，印记持续6回合',
+        lv: 10,
+        mp: 60,
+        fn: function (agent, agentList, fn?) {
+            let useBuff = false
+            const damageData = new Damage({ self: agent.self, goal: agent.goal }).result({
+                before: ((val) => {
+                    val.default_harm += Math.floor(val.default_harm * 0.3)
+                }),
+                beforEnd: ((val) => {
+                    if (val.harm) {
+                        useBuff = true
+                        giveBuff(agent.self, { name: "落霜", timer: 6 })
+                        giveBuff(agent.self, { name: "落霜", timer: 6 })
+                    }
+                })
+            })
+            fn({
+                type: SkillType.伤害技,
+                damage: damageData,
+                isNext: false,
+                target: [agent.goal]
+            })
+
+            return `${getLineupName(agent.self)} 发动飞雪！对 ${getLineupName(agent.goal)} 造成 ${damageData.harm} 伤害。${useBuff ? '并为自己挂上2层 ⌈落霜⌋ 印记' : ''}` +
+                baseMoreDamage(damageData)
+        }
     }
 };

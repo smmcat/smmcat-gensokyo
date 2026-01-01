@@ -321,5 +321,30 @@ export const monsterData: MonsterTempData = {
             { name: '大红药', val: 2, radomVal: 20 }, { name: '初级复活卷轴', val: 1, radomVal: 50 }
         ],
         fn: [{ name: '瓦尼瓦尼', prob: 1 }]
+    },
+    "星见雅": {
+        name: "星见雅",
+        type: MonsterOccupation.野怪,
+        info: '星见雅，对空洞事务特别行动部第六课课长，同时也是史上最年轻的“虚狩”。',
+        pic: "http://smmcat.cn/run/gensokyo/星见雅.png",
+        hp: 100,
+        maxHp: 100,
+        mp: 110,
+        maxMp: 110,
+        atk: 24,
+        def: 3,
+        chr: 150,
+        csr: 0,
+        evasion: 100,
+        hit: 1150,
+        ghd: 1.5,
+        speed: 6,
+        giveExp: 22,
+        giveMonetary: 3,
+        passiveList: ['霜灼破'],
+        giveProps: [
+            { name: '大红药', val: 2, radomVal: 20 }, { name: '中级复活卷轴', val: 1, radomVal: 50 }
+        ],
+        fn: [{ name: '飞雪', prob: 3 }, { name: '霜月架势', prob: 1 }]
     }
 }

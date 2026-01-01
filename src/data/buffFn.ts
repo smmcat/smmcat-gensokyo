@@ -25,6 +25,8 @@ interface DeBuffParams {
 interface ImprintBuffParams {
     type: BuffType.印记,
     key: string,
+    up?: BuffGain,
+    down?: BuffGain,
     data?: any
 }
 
@@ -210,6 +212,29 @@ export const BuffFn: BuffFnList = {
                 }
             })
         }
+    },
+    "落霜": {
+        name: "落霜",
+        type: BuffType.印记,
+        info: "每层 落霜 增加 附着者攻击力 5%，并且消耗每层 ⌈落霜⌋ 均对 霜月架势 技能增加 20% 伤害。最多拥有6点",
+        key: 'curse-buff',
+        initFn: function (agent: BattleAttribute, fn?) {
+            if (!agent.expand['frost-buff']) agent.expand['frost-buff'] = { val: 0 }
+            if (agent.expand['frost-buff'].val < 6) agent.expand['frost-buff'].val++
+        },
+        fn: function (agent: BattleAttribute, fn?) {
+            const upatk = Math.floor(agent.atk * 0.05 * (agent.expand['frost-buff']?.val || 0))
+            fn && fn({
+                type: BuffType.印记,
+                key: 'curse-buff',
+                up: {
+                    atk: upatk
+                },
+                data: {
+                    msg: `印记 ⌈落霜⌋ 存在${agent.expand['frost-buff'].val}个`
+                }
+            })
+        }
     }
 }
 
@@ -344,8 +369,36 @@ export function settlementBuff(agent: BattleAttribute) {
                 })
                 break;
             case BuffType.印记:
+                const _upMsg = []
+                const _downMsg = []
                 buffInfo.fn(agent, (val: ImprintBuffParams) => {
-                    msgList.push(val.data.msg)
+                    if (val.up) {
+                        Object.keys(val.up).forEach((buffName) => {
+                            if (agent.gain[buffName] !== undefined) {
+                                _upMsg.push(val.up[buffName] > 0 ?
+                                    gainDict[buffName] + '↑' + val.up[buffName] :
+                                    gainDict[buffName] + '↓' + Math.abs(val.up[buffName])
+                                )
+                                agent.gain[buffName] += val.up[buffName]
+                            }
+                        })
+                    }
+                    if (val.down) {
+                        Object.keys(val.down).forEach((buffName) => {
+                            if (agent.gain[buffName] !== undefined) {
+                                _downMsg.push(val.down[buffName] > 0 ?
+                                    gainDict[buffName] + '↓' + val.down[buffName] :
+                                    gainDict[buffName] + '↑' + Math.abs(val.down[buffName])
+                                )
+                                agent.gain[buffName] -= val.down[buffName]
+                            }
+                        })
+                    }
+
+                    msgList.push((_upMsg.length ? _upMsg.join('、') + ' ' : '') +
+                        ((_downMsg.length ? _downMsg.join('、') + ' ' : '')) +
+                        val.data.msg
+                    )
                 })
             default:
                 break;
