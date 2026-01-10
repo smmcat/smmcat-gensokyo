@@ -6,6 +6,7 @@ import { propsData } from "./data/initProps";
 import { BattleData } from "./battle";
 import { UserOccupation } from "./data/skillFn";
 import { monsterData } from "./data/initMonster";
+import { UserSkill } from "./user_skill";
 
 
 declare module 'koishi' {
@@ -353,6 +354,7 @@ export const User = {
         User.userTempData[session.userId] = temp as DatabaseUserAttribute
         User.userNameTemp[temp.playName] = temp.userId
         await Props.initUserPropsData(session.userId) // 道具信息写入
+        await UserSkill.initUserSkill(session.userId) // 技能信息写入
         await session.send('创建成功！\n' + User.userAttributeTextFormat(session.userId))
     },
     /** 信息格式化 */
@@ -629,6 +631,18 @@ export const User = {
         fn && await fn({
             currentProps: upProps
         })
+    },
+    /** 给予技能 */
+    async giveSkill(userId: string, skill: { name: string, type: '主动' | '被动' }, fn?: (upData: {
+        msg: string,
+        err?: string
+    }) => Promise<void>) {
+        const { code, msg } = await UserSkill.addSkill(userId, skill)
+        if (!code) {
+            fn && await fn({ err: msg, msg: msg })
+        } else {
+            fn && await fn({ msg: msg })
+        }
     },
     /** 去除玩家指定道具 */
     async loseProps(userId: string, props: { name: string, val?: number }, fn?: (upData: {

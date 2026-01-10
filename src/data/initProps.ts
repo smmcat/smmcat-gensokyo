@@ -5,7 +5,8 @@ import { BattleAttribute, BattleData } from "../battle"
 export enum PropType {
     消耗类 = '消耗类',
     礼包类 = '礼包类',
-    任务道具 = '任务道具'
+    任务道具 = '任务道具',
+    技能书 = '技能书'
 }
 
 export type propsTemplateData = {
@@ -25,14 +26,17 @@ export const propsData: propsTemplateData = {
         info: '回复自身20HP',
         price: 10,
         fn: async function (session) {
-            User.giveHPMP(session.userId, { hp: 20 }, async (val) => {
+            const result = { err: false }
+            await User.giveHPMP(session.userId, { hp: 20 }, async (val) => {
                 if (val.err) {
                     await session.send(val.err)
+                    result.err = true
                     return
                 }
                 const msg = `回复成功，玩家当前血量：${val.currentHP}`
                 await session.send(msg)
             })
+            return result
         }
     },
     "大红药": {
@@ -41,15 +45,18 @@ export const propsData: propsTemplateData = {
         info: '回复自身(120HP+5%最高血量上限)HP',
         price: 10,
         fn: async function (session) {
+            const result = { err: false }
             const { maxHp } = User.getUserAttributeByUserId(session.userId)
-            User.giveHPMP(session.userId, { hp: Math.floor(120 + maxHp * 0.05) }, async (val) => {
+            await User.giveHPMP(session.userId, { hp: Math.floor(120 + maxHp * 0.05) }, async (val) => {
                 if (val.err) {
                     await session.send(val.err)
+                    result.err = true
                     return
                 }
                 const msg = `回复成功，玩家当前血量：${val.currentHP}`
                 await session.send(msg)
             })
+            return result
         }
     },
     "蓝药": {
@@ -58,14 +65,17 @@ export const propsData: propsTemplateData = {
         info: '回复自身20MP',
         price: 10,
         fn: async function (session) {
-            User.giveHPMP(session.userId, { mp: 20 }, async (val) => {
+            const result = { err: false }
+            await User.giveHPMP(session.userId, { mp: 20 }, async (val) => {
                 if (val.err) {
                     await session.send(val.err)
+                    result.err = true
                     return
                 }
                 const msg = `回复成功，玩家当前蓝量：${val.currentMP}`
                 await session.send(msg)
             })
+            return result
         }
     },
     "初级万能药": {
@@ -74,14 +84,17 @@ export const propsData: propsTemplateData = {
         info: '回复自身20MP和20HP',
         price: 20,
         fn: async function (session) {
-            User.giveHPMP(session.userId, { hp: 20, mp: 20 }, async (val) => {
+            const result = { err: false }
+            await User.giveHPMP(session.userId, { hp: 20, mp: 20 }, async (val) => {
                 if (val.err) {
                     await session.send(val.err)
+                    result.err = true
                     return
                 }
                 const msg = `回复成功，玩家当前血量：${val.currentHP}、蓝量：${val.currentMP}`
                 await session.send(msg)
             })
+            return result
         }
     },
     "初级复活卷轴": {
@@ -125,5 +138,110 @@ export const propsData: propsTemplateData = {
                 await session.send(`复活成功，当前血量：${val.currentHP}`)
             })
         }
-    }
+    },
+    "技能书-毒之牙": {
+        name: "技能书-毒之牙",
+        type: PropType.技能书,
+        info: '通过该道具可直接学习主动技能【毒之牙】供战斗使用。',
+        price: 1500,
+        fn: async function (session) {
+            if (BattleData.isBattleByUserId(session.userId)) {
+                session.send(`该道具在战斗中无法使用！请在小队脱离战斗后使用。`)
+                return { err: true }
+            }
+            return await User.giveSkill(session.userId, { name: '毒之牙', type: '主动' }, async (val) => {
+                await session.send(val.msg)
+            })
+        }
+    },
+    "技能书-恐怖催眠术": {
+        name: "技能书-恐怖催眠术",
+        type: PropType.技能书,
+        info: '通过该道具可直接学习主动技能【恐怖催眠术】供战斗使用。',
+        price: 1500,
+        fn: async function (session) {
+            if (BattleData.isBattleByUserId(session.userId)) {
+                session.send(`该道具在战斗中无法使用！请在小队脱离战斗后使用。`)
+                return { err: true }
+            }
+            return await User.giveSkill(session.userId, { name: '恐怖催眠术', type: '主动' }, async (val) => {
+                await session.send(val.msg)
+            })
+        }
+    },
+    "技能书-初级驱散": {
+        name: "技能书-初级驱散",
+        type: PropType.技能书,
+        info: '通过该道具可直接学习主动技能【初级驱散】供战斗使用。',
+        price: 1500,
+        fn: async function (session) {
+            if (BattleData.isBattleByUserId(session.userId)) {
+                session.send(`该道具在战斗中无法使用！请在小队脱离战斗后使用。`)
+                return { err: true }
+            }
+            return await User.giveSkill(session.userId, { name: '初级驱散', type: '主动' }, async (val) => {
+                await session.send(val.msg)
+            })
+        }
+    },
+    "技能书-治愈之光": {
+        name: "技能书-治愈之光",
+        type: PropType.技能书,
+        info: '通过该道具可直接学习主动技能【治愈之光】供战斗使用。',
+        price: 1500,
+        fn: async function (session) {
+            if (BattleData.isBattleByUserId(session.userId)) {
+                session.send(`该道具在战斗中无法使用！请在小队脱离战斗后使用。`)
+                return { err: true }
+            }
+            return await User.giveSkill(session.userId, { name: '治愈之光', type: '主动' }, async (val) => {
+                await session.send(val.msg)
+            })
+        }
+    },
+    "技能书-飞雪": {
+        name: "技能书-飞雪",
+        type: PropType.技能书,
+        info: '通过该道具可直接学习主动技能【飞雪】供战斗使用。',
+        price: 1500,
+        fn: async function (session) {
+            if (BattleData.isBattleByUserId(session.userId)) {
+                session.send(`该道具在战斗中无法使用！请在小队脱离战斗后使用。`)
+                return { err: true }
+            }
+            return await User.giveSkill(session.userId, { name: '飞雪', type: '主动' }, async (val) => {
+                await session.send(val.msg)
+            })
+        }
+    },
+    "技能书-霜月架势": {
+        name: "技能书-霜月架势",
+        type: PropType.技能书,
+        info: '通过该道具可直接学习主动技能【霜月架势】供战斗使用。',
+        price: 1500,
+        fn: async function (session) {
+            if (BattleData.isBattleByUserId(session.userId)) {
+                session.send(`该道具在战斗中无法使用！请在小队脱离战斗后使用。`)
+                return { err: true }
+            }
+            return await User.giveSkill(session.userId, { name: '霜月架势', type: '主动' }, async (val) => {
+                await session.send(val.msg)
+            })
+        }
+    },
+    "被动书-针女": {
+        name: "被动书-针女",
+        type: PropType.技能书,
+        info: '通过该道具可直接学习被动技能【针女】供战斗使用。',
+        price: 1500,
+        fn: async function (session) {
+            if (BattleData.isBattleByUserId(session.userId)) {
+                session.send(`该道具在战斗中无法使用！请在小队脱离战斗后使用。`)
+                return { err: true }
+            }
+            return await User.giveSkill(session.userId, { name: '针女', type: '被动' }, async (val) => {
+                await session.send(val.msg)
+            })
+        }
+    },
 }

@@ -11,6 +11,7 @@ import { Props } from './props';
 import { generateMapHTML } from './mapHtml';
 import { PassiveFn } from './data/PassiveFn';
 import { BuffFn } from './data/buffFn';
+import { UserSkill } from './user_skill';
 export const name = 'smmcat-gensokyo'
 
 export const inject = {
@@ -28,12 +29,17 @@ export function apply(ctx: Context, config: Config) {
     User.init(config, ctx)
     Monster.init(config, ctx)
     Props.init(config, ctx)
+    UserSkill.init(config, ctx)
   })
   const Queue = new AsyncOperationQueue()
+  const temp = {}
   ctx
     .command('幻想乡')
+
+    ctx
+      .command('幻想乡/移动操作')
   ctx
-    .command('幻想乡/移动.上')
+    .command('移动操作/移动.上')
     .action(async ({ session }) => {
       console.log(session.userId.slice(0, 6) + '触发了上移动');
       const userData = await User.getUserAttribute(session)
@@ -63,7 +69,7 @@ export function apply(ctx: Context, config: Config) {
       })
     })
   ctx
-    .command('幻想乡/移动.下')
+    .command('移动操作/移动.下')
     .action(async ({ session }) => {
       console.log(session.userId.slice(0, 6) + '触发了下移动');
       const userData = await User.getUserAttribute(session)
@@ -93,7 +99,7 @@ export function apply(ctx: Context, config: Config) {
       })
     })
   ctx
-    .command('幻想乡/移动.左')
+    .command('移动操作/移动.左')
     .action(async ({ session }) => {
       console.log(session.userId.slice(0, 6) + '触发了左移动');
       const userData = await User.getUserAttribute(session)
@@ -123,7 +129,7 @@ export function apply(ctx: Context, config: Config) {
       })
     })
   ctx
-    .command('幻想乡/移动.右')
+    .command('移动操作/移动.右')
     .action(async ({ session }) => {
       console.log(session.userId.slice(0, 6) + '触发了右移动');
       const userData = await User.getUserAttribute(session)
@@ -168,8 +174,10 @@ export function apply(ctx: Context, config: Config) {
       await session.send(GensokyoMap.userAreaTextFormat(userData.playName, query))
     })
 
+    ctx
+      .command('幻想乡/个人查询')
   ctx
-    .command('幻想乡/个人属性')
+    .command('个人查询/个人属性')
     .action(async ({ session }) => {
       const userData = await User.getUserAttribute(session)
       if (!userData) return
@@ -178,7 +186,7 @@ export function apply(ctx: Context, config: Config) {
     })
 
   ctx
-    .command('幻想乡/个人道具')
+    .command('个人查询/个人道具')
     .action(async ({ session }) => {
       const userData = await User.getUserAttribute(session)
       if (!userData) return
@@ -187,7 +195,7 @@ export function apply(ctx: Context, config: Config) {
     })
 
   ctx
-    .command('幻想乡/个人信息').userFields(['id'])
+    .command('个人查询/个人信息').userFields(['id'])
     .action(async ({ session }) => {
       const userData = await User.getUserAttribute(session)
       if (!userData) return
@@ -217,10 +225,10 @@ export function apply(ctx: Context, config: Config) {
     })
 
   // ctx
-  //   .command('给我药')
+  //   .command('给我书')
   //   .action(async ({ session }) => {
   //     await session.send('稍等...')
-  //     await User.giveProps(session.userId, [{ name: '红药', val: 99999 }], async (val) => {
+  //     await User.giveProps(session.userId, [{ name: '被动书-针女', val: 2 }], async (val) => {
   //       if (val.err) {
   //         session.send(val.err)
   //         return
@@ -230,7 +238,10 @@ export function apply(ctx: Context, config: Config) {
   //   })
 
   ctx
-    .command('幻想乡/打怪遇敌 <goal>')
+    .command('幻想乡/战斗操作')
+
+  ctx
+    .command('战斗操作/打怪遇敌 <goal>')
     .action(async ({ session }, goal) => {
       const userData = await User.getUserAttribute(session)
       if (!userData) return
@@ -256,7 +267,7 @@ export function apply(ctx: Context, config: Config) {
     })
 
   ctx
-    .command('幻想乡/打怪攻击 <goal>')
+    .command('战斗操作/打怪攻击 <goal>')
     .action(async ({ session }, goal) => {
       const userData = await User.getUserAttribute(session)
       if (!userData) return
@@ -264,7 +275,7 @@ export function apply(ctx: Context, config: Config) {
     })
 
   ctx
-    .command('幻想乡/打怪技能 <skill> <goal>')
+    .command('战斗操作/打怪技能 <skill> <goal>')
     .action(async ({ session }, skill, goal) => {
       const userData = await User.getUserAttribute(session)
       if (!userData) return
@@ -272,7 +283,7 @@ export function apply(ctx: Context, config: Config) {
     })
 
   ctx
-    .command('幻想乡/打怪pk <goal>')
+    .command('战斗操作/打怪pk <goal>')
     .action(async ({ session }, goal) => {
       const userData = await User.getUserAttribute(session)
       if (!userData) return
@@ -316,29 +327,8 @@ export function apply(ctx: Context, config: Config) {
       }
       await Props.userProps(session, props)
     })
-  ctx
-    .command('幻想乡/技能查询 <goal>')
-    .action(async ({ session }, goal) => {
-      if (!goal) return `请输入技能名，例如 /技能查询 重砍`
-      if (!skillFn[goal]) return `没有存在 ${goal} 技能！`
-      return `[${goal}]信息如下：\n` + skillFn[goal].info + `\n消耗MP：${skillFn[goal].mp}`
-    })
 
-  ctx
-    .command('幻想乡/被动查询 <goal>')
-    .action(async ({ session }, goal) => {
-      if (!goal) return `请输入被动名，例如 /被动查询 吸血`
-      if (!PassiveFn[goal]) return `没有存在 ${goal} 被动！`
-      return `[${goal}]信息如下：\n` + PassiveFn[goal].info
-    })
-  ctx
-    .command('幻想乡/状态查询 <goal>')
-    .action(async ({ session }, goal) => {
-      if (!goal) return `请输入技能名，例如 /状态查询 治愈`
-      if (!BuffFn[goal]) return `没有存在 ${goal} 状态！`
-      return `[${goal}]信息如下：\n` + BuffFn[goal].info
-    })
-  const temp = {}
+
   ctx
     .command('幻想乡/补给')
     .action(async ({ session }) => {
@@ -495,6 +485,8 @@ export function apply(ctx: Context, config: Config) {
     .action(async ({ session }) => {
       const userData = await User.getUserAttribute(session)
       if (!userData) return
+      GensokyoMap.initUserPoistion(session, userData)
+
       await Queue.add(async () => await BattleData.battleEscape(session))
     })
 
@@ -503,8 +495,8 @@ export function apply(ctx: Context, config: Config) {
     .action(async ({ session }, floor) => {
       const userData = await User.getUserAttribute(session)
       if (!userData) return
-
       GensokyoMap.initUserPoistion(session, userData)
+
       if (BattleData.isBattle(session)) {
         await session.send('您正在战斗中，无法移动！')
         return
@@ -524,5 +516,53 @@ export function apply(ctx: Context, config: Config) {
         await session.send(`传送到${floor}层成功！`)
         await session.send(GensokyoMap.userAreaTextFormat(val.user.playName, val))
       })
+    })
+
+  ctx
+    .command('幻想乡/技能系统')
+  ctx
+    .command('技能系统/技能装配','查询当前配置的技能槽位')
+    .action(async ({ session }) => {
+      const userData = await User.getUserAttribute(session)
+      if (!userData) return
+      GensokyoMap.initUserPoistion(session, userData)
+
+      return UserSkill.getUserBattleSkillTextData(session.userId)
+    })
+
+  ctx
+    .command('技能系统/技能配置 <skillName:string> <slotIndex:posint>','设置当前配置的主动技能')
+    .action(async ({ session }, skillName, slotIndex) => {
+      const userData = await User.getUserAttribute(session)
+      if (!userData) return
+      GensokyoMap.initUserPoistion(session, userData)
+
+      if (skillName == undefined) {
+        return '输入技能名，例如 /技能配置 重砍 1'
+      }
+      UserSkill.adjustActiveSkill(session, skillName, slotIndex)
+    })
+
+  ctx
+    .command('技能系统/技能查询 <goal>','查询指定主动技能的信息说明')
+    .action(async ({ session }, goal) => {
+      if (!goal) return `请输入技能名，例如 /技能查询 重砍`
+      if (!skillFn[goal]) return `没有存在 ${goal} 技能！`
+      return `[${goal}]信息如下：\n` + skillFn[goal].info + `\n消耗MP：${skillFn[goal].mp}`
+    })
+
+  ctx
+    .command('技能系统/被动查询 <goal>','查询指定被动技能的信息说明')
+    .action(async ({ session }, goal) => {
+      if (!goal) return `请输入被动名，例如 /被动查询 吸血`
+      if (!PassiveFn[goal]) return `没有存在 ${goal} 被动！`
+      return `[${goal}]信息如下：\n` + PassiveFn[goal].info
+    })
+  ctx
+    .command('技能系统/状态查询 <goal>','查询指定状态BUFF的信息说明')
+    .action(async ({ session }, goal) => {
+      if (!goal) return `请输入技能名，例如 /状态查询 治愈`
+      if (!BuffFn[goal]) return `没有存在 ${goal} 状态！`
+      return `[${goal}]信息如下：\n` + BuffFn[goal].info
     })
 }

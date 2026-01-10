@@ -8,6 +8,7 @@ import { skillFn, SkillType, UseAtkType, UserOccupation } from "./data/skillFn";
 import { MonsterBaseAttribute, MonsterOccupation } from "./data/initMonster";
 import { settlementBuff } from "./data/buffFn";
 import { GensokyoMap } from "./map";
+import { UserSkill } from "./user_skill";
 
 declare module 'koishi' {
     interface Tables {
@@ -575,7 +576,18 @@ export const BattleData = {
                 if (!agent.gain.chaos) {
                     if (agent.type == '玩家' && agent.userId == session.userId) {
                         isMy = true;
-                        funType = atkType;
+                        let selectFn = '普攻'
+                        if (!isNaN(Number(atkType))) {
+                            selectFn = UserSkill.userSkillTemp[agent.userId].fast_activeSkill[atkType]
+                        } else {
+                            selectFn = atkType
+                        }
+                        if (selectFn !== '普攻' && !agent.fn.find((item) => item.name == selectFn)) {
+                            await session.send(`您并未未设置该技能为战斗技能，或者未持有该技能！`)
+                            funType = '普攻';
+                        } else {
+                            funType = selectFn;
+                        }
                         selectGoal = lifeGoalList.find((item) => item.name == select) ||
                             lifeGoalList[Math.floor(Math.random() * lifeGoalList.length)]
                     }
@@ -595,7 +607,7 @@ export const BattleData = {
 
                         // 概率释放技能
                         if (random(0, 10) < 4 && agent.fn?.length) {
-                            funType = getSkillFn(agent.fn)
+                            funType = getSkillFn(agent.fn as { name: string; prob: number; }[])
                         }
                     }
                 } else {
@@ -616,55 +628,72 @@ export const BattleData = {
                 if (funType == '普攻' || agent.gain.silence) {
                     noralAtk()
                 } else {
+
                     // 尝试释放技能
                     if (skillFn[funType] && skillFn[funType].lv <= agent.lv) {
-                        // 是否为(治疗|增益)技能 特殊处理
-                        let _selectGoal = selectGoal
-                        if ([SkillType.治疗技, SkillType.增益技].includes(skillFn[funType].type)) {
-                            _selectGoal = lifeSelfList.find((item) => item.name == select) || agent
-                        }
-                        const selectFn = skillFn[funType]
-                        let buffmsg = ''
-                        // 如果MP消耗足够
-                        if (selectFn.mp == 0 || agent.mp - selectFn.mp >= 0) {
-                            agent.mp -= selectFn.mp
-                            let isNext = false
-                            const fnMsg = selectFn.fn({ self: agent, goal: _selectGoal },
-                                { selfList: lifeSelfList, goalList: lifeGoalList }, (val) => {
-                                    switch (val.type) {
-                                        case SkillType.伤害技:
-                                            val.target.map((goal) => {
-                                                giveDamage(agent, goal, val.damage)
-                                            })
-                                            break;
-                                        case SkillType.治疗技:
-                                            val.target.map((goal) => {
-                                                val.value += val.value * (1 - agent.gain.TreatmentUp)
-                                                giveCure(goal, val.value, (msg) => {
-                                                    if (msg) {
-                                                        buffmsg = '。' + msg
-                                                    }
-                                                })
-                                            })
-                                            break;
-                                        case SkillType.增益技:
-                                            isMy && val.err && session.send(val.err)
-                                            break;
-                                        case SkillType.减益技:
-                                            isMy && val.err && session.send(val.err)
-                                            break;
-                                        case SkillType.释放失败:
-                                            isMy && val.err && session.send(val.err)
-                                        default:
-                                            break;
-                                    }
-                                    isNext = val.isNext
-                                })
-                            fnMsg && msgList.push(fnMsg + buffmsg)
-                            isNext && noralAtk()
-                        } else {
-                            isMy && await session.send(`MP不足，释放失败！`)
+                        const useSkillFn = agent.fn.find(i => i.name == funType)
+                        // 技能释放
+                        if (isMy && useSkillFn.prob <= 0) {
+                            await session.send(`该技能达到本局最大使用次数，已无法在本局释放。`)
                             noralAtk()
+                        } else {
+                            if (isMy) {
+                                useSkillFn.prob--
+                                UserSkill.userSkillTemp[agent.userId].activeSkill[useSkillFn.name].proficient++
+                                if (useSkillFn.prob == 0) {
+                                    await session.send(`${agent.name}(你)：${useSkillFn.name}技能次数已用完`)
+                                } else {
+                                    await session.send(`${agent.name}(你)：${useSkillFn.name}技能剩余使用次数：${useSkillFn.prob}次`)
+                                }
+                            }
+                            // 是否为(治疗|增益)技能 特殊处理
+                            let _selectGoal = selectGoal
+                            if ([SkillType.治疗技, SkillType.增益技].includes(skillFn[funType].type)) {
+                                _selectGoal = lifeSelfList.find((item) => item.name == select) || agent
+                            }
+                            const selectFn = skillFn[funType]
+                            let buffmsg = ''
+                            // 如果MP消耗足够
+                            if (selectFn.mp == 0 || agent.mp - selectFn.mp >= 0) {
+                                agent.mp -= selectFn.mp
+                                let isNext = false
+                                const fnMsg = selectFn.fn({ self: agent, goal: _selectGoal },
+                                    { selfList: lifeSelfList, goalList: lifeGoalList }, (val) => {
+                                        switch (val.type) {
+                                            case SkillType.伤害技:
+                                                val.target.map((goal) => {
+                                                    giveDamage(agent, goal, val.damage)
+                                                })
+                                                break;
+                                            case SkillType.治疗技:
+                                                val.target.map((goal) => {
+                                                    val.value += val.value * (1 - agent.gain.TreatmentUp)
+                                                    giveCure(goal, val.value, (msg) => {
+                                                        if (msg) {
+                                                            buffmsg = '。' + msg
+                                                        }
+                                                    })
+                                                })
+                                                break;
+                                            case SkillType.增益技:
+                                                isMy && val.err && session.send(val.err)
+                                                break;
+                                            case SkillType.减益技:
+                                                isMy && val.err && session.send(val.err)
+                                                break;
+                                            case SkillType.释放失败:
+                                                isMy && val.err && session.send(val.err)
+                                            default:
+                                                break;
+                                        }
+                                        isNext = val.isNext
+                                    })
+                                fnMsg && msgList.push(fnMsg + buffmsg)
+                                isNext && noralAtk()
+                            } else {
+                                isMy && await session.send(`MP不足，释放失败！`)
+                                noralAtk()
+                            }
                         }
                     } else {
                         if (skillFn[funType] && skillFn[funType].lv > agent.lv) {
@@ -723,6 +752,7 @@ export const BattleData = {
             if (User.userTempData[agent.userId].hp <= 0) {
                 User.userTempData[agent.userId].isDie = true
             }
+            UserSkill.setLocalUserData(agent.userId)
         }
         if (tempData.isPK) {
             if (overInfo.win == 'self') {
@@ -745,21 +775,16 @@ export const BattleData = {
                 }
             }
         } else {
-            // 获取怪物经验总值
-            let val = 0
-            // 获得怪物货币总值
-            let monetary = 0
             const resMsg = []
-
-            if (overInfo.win == 'self') {
-                await session.send(`小队获得${val}EXP、${monetary}货币！`)
-            }
             for (const agent of selfList) {
                 aynchronize(agent)
                 if (overInfo.win == 'self') {
-                    await User.giveExp(agent.userId, val, async (val) => await msg(val))
-                    await User.giveMonetary(agent.userId, monetary)
+                    // 获取怪物经验总值
+                    let val = 0
+                    // 获得怪物货币总值
+                    let monetary = 0
                     let props = [] as { name: string, val: number }[]
+                    let _msg = ''
 
                     // 道具获取 独立计算
                     const monsterName = tempData.goal.filter((item) => item.type == '怪物').map(i => ({ name: i.name, lv: i.lv }))
@@ -779,17 +804,23 @@ export const BattleData = {
                             })
                         }
                     })
+
+                    _msg += `${agent.name}：获得${val}EXP、${monetary}货币！`
+                    // 奖励结算
                     props.length && await User.giveProps(agent.userId, props, async (val) => {
                         const propsDict = {}
                         val.currentProps.forEach((item) => {
                             if (!propsDict[item.name]) propsDict[item.name] = 0
                             propsDict[item.name]++
                         })
-                        const msg = Object.keys(propsDict).map((item) => {
+                        const msg = `获得道具：` + Object.keys(propsDict).map((item) => {
                             return `${item} ${propsDict[item]}个`
-                        }).join('\n')
-                        resMsg.push(`${agent.name}在战斗中获得：` + msg)
+                        }).join('、')
+                        _msg += msg
                     })
+                    await User.giveExp(agent.userId, val, async (val) => await msg(val))
+                    await User.giveMonetary(agent.userId, monetary)
+                    resMsg.push(_msg)
                 }
             }
             await session.send(resMsg.join('\n'))
@@ -860,8 +891,8 @@ function initBattleAttribute(data: UserBaseAttribute | MonsterBaseAttribute): Ba
                 reduction: 0
             },
             buff: {},
-            fn: [],
-            passiveList: [],
+            fn: UserSkill.getUserSkillData(userData.userId).activeSkill,
+            passiveList: UserSkill.getUserSkillData(userData.userId).passiveSkill,
             expand: {}
         } as BattleAttribute
         return temp

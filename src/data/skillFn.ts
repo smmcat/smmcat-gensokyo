@@ -1,5 +1,6 @@
 import { BattleAttribute, getLineupName } from "../battle";
 import { baseMoreDamage, Damage, DamageConfig } from "../damage";
+import { User } from "../users";
 import { getFreeList, random } from "../utlis";
 import { BuffFn, BuffType, clearBuff, clearImprint, giveBuff } from "./buffFn";
 
@@ -86,6 +87,8 @@ interface SkillConfig<T extends SkillType = SkillType> {
     info: string;
     /** 等级限制 */
     lv: number,
+    /** 使用次数限制 */
+    useTime: number,
     /** 消耗MP */
     mp: number;
     /** 职业专属 */
@@ -110,6 +113,7 @@ export const skillFn: SkillFn = {
         info: '[伤害技]消耗10MP，对敌方一个单位造成基于攻击力1.2倍伤害。该次伤害无视敌方30%防御！（最低无视1防御）',
         lv: 3,
         mp: 10,
+        useTime: 6,
         feature: [UserOccupation.剑士],
         fn: function (agent, agentList, fn?) {
             const damageData = new Damage(agent).result({
@@ -133,6 +137,7 @@ export const skillFn: SkillFn = {
         info: '[伤害技]消耗10MP，对敌方一个单位造成基于攻击力1.2倍伤害，该伤害无视敌方闪避10%',
         lv: 3,
         mp: 10,
+        useTime: 6,
         feature: [UserOccupation.刺客],
         fn: function (agent, agentList, fn?) {
             const damageData = new Damage(agent).result({
@@ -156,6 +161,7 @@ export const skillFn: SkillFn = {
         info: '[伤害技]消耗10MP，通过凝集魔力对敌方造成基于攻击力1.2倍伤害，该伤害基于当前剩余魔法值10%额外叠加伤害。',
         lv: 3,
         mp: 10,
+        useTime: 6,
         feature: [UserOccupation.法师],
         fn: function (agent, agentList, fn?) {
             const damageData = new Damage(agent).result({
@@ -178,6 +184,7 @@ export const skillFn: SkillFn = {
         info: '[伤害技]血量低于40%可释放，消耗20MP，对敌方一个单位造成基于攻击力2倍伤害。该次伤害暴击率提高20%',
         lv: 3,
         mp: 20,
+        useTime: 6,
         fn: function (agent, agentList, fn?) {
             if (agent.self.hp / (agent.self.maxHp + agent.self.gain.maxHp) < 0.4) {
                 const damageData = new Damage(agent).result({
@@ -209,6 +216,7 @@ export const skillFn: SkillFn = {
         info: '[治疗技]直接恢复自身或者目标 40HP',
         lv: 1,
         mp: 30,
+        useTime: 6,
         fn: function (agent, agentList, fn?) {
             const selectGoal = agent.goal
             if (agent.goal.hp <= 0) {
@@ -229,6 +237,7 @@ export const skillFn: SkillFn = {
         info: '对目标造成1.5倍伤害',
         lv: 1,
         mp: 20,
+        useTime: 3,
         fn: function (agent, agentList, fn?) {
             const damageData = new Damage(agent).result({
                 before: ((val) => {
@@ -250,6 +259,7 @@ export const skillFn: SkillFn = {
         info: '为目标挂上3回合治愈状态',
         lv: 1,
         mp: 20,
+        useTime: 6,
         fn: function (agent, agentList, fn?) {
             giveBuff(agent.goal, { name: "治愈", timer: 3 })
             fn({
@@ -265,6 +275,7 @@ export const skillFn: SkillFn = {
         info: '对敌方最多3个目标造成攻击力1.2倍伤害，造成伤害时有50%概率为敌方附加3回合中毒状态。',
         lv: 1,
         mp: 40,
+        useTime: 3,
         fn: function (agent, agentList, fn?) {
             const goalList = getFreeList(agentList.goalList).slice(0, 3).filter(i => i) as BattleAttribute[]
             const msgList = [`${getLineupName(agent.self)}释放了群体技能毒之牙！`]
@@ -299,6 +310,7 @@ export const skillFn: SkillFn = {
         info: '对单个目标造成(攻击1.5倍+自身命中值10%)伤害，造成伤害有60%概率使其晕眩2回合。',
         lv: 1,
         mp: 40,
+        useTime: 4,
         fn: function (agent, agentList, fn?) {
             let useBuff = false
             const damageData = new Damage(agent).result({
@@ -329,6 +341,7 @@ export const skillFn: SkillFn = {
         info: '对单个目标附加破绽状态（额外受到30%伤害），持续2回合',
         lv: 1,
         mp: 30,
+        useTime: 4,
         fn: function (agent, agentList, fn?) {
             giveBuff(agent.goal, { name: "破绽", timer: 2 })
             fn({
@@ -344,6 +357,7 @@ export const skillFn: SkillFn = {
         info: '[治疗技]随机驱散目标1-2个负面BUFF，每个负面BUFF回复10%血量',
         lv: 5,
         mp: 40,
+        useTime: 5,
         fn: function (agent, agentList, fn?) {
             const selectGoal = agent.goal
             if (selectGoal.hp <= 0) {
@@ -379,6 +393,7 @@ export const skillFn: SkillFn = {
         info: '[减益技]怪物特有技能：为玩家目标添加5回合的⌈咒⌋印记，当对方持有3个⌈咒⌋印记，将直接死亡。⌈咒⌋可以有50%概率会被技能类型的治疗驱散',
         lv: 5,
         mp: 40,
+        useTime: 4,
         fn: function (agent, agentList, fn?) {
             if (agent.self.type == '玩家' || agent.goal.type == '怪物') {
                 fn({
@@ -409,6 +424,7 @@ export const skillFn: SkillFn = {
         info: '[减益技]怪物特有技能：只有关闭恋の瞳的妖怪可用。造成(攻击1.5倍+自身闪避值5%)伤害，造成伤害有60%概率使其沉默2回合。',
         lv: 5,
         mp: 40,
+        useTime: 4,
         fn: function (agent, agentList, fn?) {
             if (agent.self.type == '玩家' || agent.goal.type == '怪物') {
                 fn({
@@ -447,6 +463,7 @@ export const skillFn: SkillFn = {
         info: '[伤害技]怪物特有技能：对目标使用Intulit Mortem（瓦尼瓦尼）。造成连续两次并后续每次都会有40%概率追加单体攻击的伤害。每次攻击造成(40%攻击力+5%自身剩余MP)的伤害。',
         lv: 5,
         mp: 60,
+        useTime: 4,
         fn: function (agent, agentList, fn?) {
             if (agent.self.type == '玩家' || agent.goal.type == '怪物') {
                 fn({
@@ -501,6 +518,7 @@ export const skillFn: SkillFn = {
         info: '将收刀进入 霜月架势 并开始蓄力，对目标全体（最大4名）造成 200%基础攻击力 伤害。触发技能前记录当前所有 ⌈落霜⌋ 印记，每消耗1个 ⌈落霜⌋ 印记，该次伤害增加20%，当消耗达到6印记时，有 60% 概率对目标添加 2回合 ⌈破绽⌋ 状态',
         lv: 10,
         mp: 120,
+        useTime: 4,
         fn: function (agent, agentList, fn?) {
             if (agent.goal.type == '怪物' && agent.self.expand['frost-buff']?.val <= 4) {
                 fn({
@@ -551,6 +569,7 @@ export const skillFn: SkillFn = {
         info: '快速突进，对单个目标发动强力斩击，造成1.3倍伤害。造成伤害时获得2层 ⌈落霜⌋ 印记，印记持续6回合',
         lv: 10,
         mp: 60,
+        useTime: 6,
         fn: function (agent, agentList, fn?) {
             let useBuff = false
             const damageData = new Damage({ self: agent.self, goal: agent.goal }).result({
@@ -573,6 +592,32 @@ export const skillFn: SkillFn = {
             })
 
             return `${getLineupName(agent.self)} 发动飞雪！对 ${getLineupName(agent.goal)} 造成 ${damageData.harm} 伤害。${useBuff ? '并为自己挂上2层 ⌈落霜⌋ 印记' : ''}` +
+                baseMoreDamage(damageData)
+        }
+    },
+    "跟你爆了": {
+        name: "跟你爆了",
+        type: SkillType.伤害技,
+        info: '"事到如今，只能自爆了。"\n牺牲自己，直接对目标造成目前 自身生命值*1.5 的真实伤害。',
+        lv: 10,
+        mp: 60,
+        useTime: 1,
+        fn: function (agent, agentList, fn?) {
+            const damageData = new Damage({ self: agent.self, goal: agent.goal }, true).result({
+                before: ((val) => {
+                    val.default_harm = Math.floor(agent.self.hp * 1.5)
+                })
+            })
+            agent.self.hp = 0
+            agent.self.userId && User.giveDie(agent.self.userId)
+            fn({
+                type: SkillType.伤害技,
+                damage: damageData,
+                isNext: false,
+                target: [agent.goal]
+            })
+
+            return `${getLineupName(agent.self)} 发动跟你爆了！对 ${getLineupName(agent.goal)} 造成 ${damageData.harm} 伤害。` +
                 baseMoreDamage(damageData)
         }
     }

@@ -12,6 +12,7 @@ export type PassiveItem = {
     name: string,
     info: string,
     type: 'atk' | 'hit',
+    lv: number,
     damageFn: (config: DamageConfig) => string
 }
 
@@ -20,6 +21,7 @@ export const PassiveFn: PassiveDict = {
         name: "吸血",
         info: "造成伤害时，汲取10%该次伤害的值治疗自己",
         type: 'atk',
+        lv: 1,
         damageFn: function (config) {
             const val = Math.floor(config.harm * 0.1)
             if (val) {
@@ -33,6 +35,7 @@ export const PassiveFn: PassiveDict = {
         name: "反伤",
         info: "有40%概率直接反弹本次伤害的20%（真实伤害）",
         type: 'hit',
+        lv: 1,
         damageFn: function (config) {
             const val = Math.floor(config.harm * 0.2)
             if (val && random(0, 10) <= 4) {
@@ -46,6 +49,7 @@ export const PassiveFn: PassiveDict = {
         name: "破势",
         info: "敌方血量大于70%时，造成的伤害提高30%",
         type: 'atk',
+        lv: 1,
         damageFn: function (config) {
             if (config.linkAgent.goal.hp / config.linkAgent.goal.maxHp > 0.7) {
                 const upVal = Math.floor(config.harm * 0.3)
@@ -62,6 +66,7 @@ export const PassiveFn: PassiveDict = {
         name: "心眼",
         info: "敌方血量小于40%时，造成的伤害提高30%",
         type: 'atk',
+        lv: 1,
         damageFn: function (config) {
             if (config.linkAgent.goal.hp / config.linkAgent.goal.maxHp < 0.4) {
                 const upVal = Math.floor(config.harm * 0.3)
@@ -78,6 +83,7 @@ export const PassiveFn: PassiveDict = {
         name: "针女",
         info: "造成暴击有50%概率额外造成敌方5%血量真实伤害（伤害最大不超过使用者攻击力的120%）",
         type: 'atk',
+        lv: 1,
         damageFn: function (config) {
             if (config.isCsp && random(0, 10) <= 5) {
                 const upVal = Math.min(
@@ -97,6 +103,7 @@ export const PassiveFn: PassiveDict = {
         name: "霜灼破",
         info: "造成伤害时有 20% 概率为自身增加1点 ⌈落霜⌋ 印记，每层 ⌈落霜⌋ 印记增加 5% 攻击力，持续6回合",
         type: 'atk',
+        lv: 5,
         damageFn: function (config) {
             if (random(0, 10) <= 2) {
                 giveBuff(config.linkAgent.self, { name: "落霜", timer: 6 })
