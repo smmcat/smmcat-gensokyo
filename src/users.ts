@@ -7,6 +7,7 @@ import { BattleData } from "./battle";
 import { UserOccupation } from "./data/skillFn";
 import { monsterData } from "./data/initMonster";
 import { UserSkill } from "./user_skill";
+import { SecAttrDict, UserEquipment } from "./equipment";
 
 
 declare module 'koishi' {
@@ -57,7 +58,15 @@ export type UserBaseAttribute = {
     /** 命中值 */
     hit: number,
     /** 出手速度 */
-    speed: number
+    speed: number,
+    /** 持有技能 */
+    fn?: { name: string, prob: number }[],
+    /** 被动技能 */
+    passiveList?: string[],
+    /** 装备加成 */
+    equipmentUpInfo?: SecAttrDict,
+    /** 装备套装属性 */
+    suitMap?: { [keys: string]: number }
 }
 
 export type DatabaseUserAttribute = {
@@ -241,13 +250,15 @@ export const User = {
             maxMp: UserData.maxMp,
             maxPp: UserData.maxPp || 100, // 添加默认值
             type: UserDict.type, // 添加职业类型
-            csr: UserData.csr || 0 // 添加暴击抵抗
+            csr: UserData.csr || 0, // 添加暴击抵抗
+            equipmentUpInfo: {}, // 装备加成
+            suitMap: {} // 套装
         } as UserBaseAttribute
 
         // 如果等级为1，直接返回初始属性
-        if (lv <= 1) {
-            return temp;
-        }
+        // if (lv <= 1) {
+        //     return temp;
+        // }
 
         // 定义等级阶段和对应的基准
         const levelStages = [
@@ -297,6 +308,22 @@ export const User = {
         temp.ghd = parseFloat(temp.ghd.toFixed(1));
         temp.speed = Math.round(temp.speed);
 
+        // 技能注入
+        temp.fn = UserSkill.getUserSkillData(userId).activeSkill || []
+        temp.passiveList = UserSkill.getUserSkillData(userId).passiveSkill || []
+
+        // 装备属性记录值到 temp.equipmentUpInfo 中
+        UserEquipment.setBattleDataUpByEquipmentAttr(temp)
+        // 修正增益数据
+        temp.maxHp = temp.maxHp + (temp.equipmentUpInfo?.maxHp || 0)
+        temp.maxMp = temp.maxMp + (temp.equipmentUpInfo?.maxMp || 0)
+
+        if (temp.hp > temp.maxHp) {
+            temp.hp = temp.maxHp
+        }
+        if (temp.mp > temp.maxMp) {
+            temp.mp = temp.maxMp
+        }
         return temp;
     },
     /** 通过 userId 获取角色属性 */
@@ -367,18 +394,18 @@ export const User = {
             `职位：${temp.type}\n` +
             `等级：${temp.lv} (${temp.exp}/${temp.maxExp})\n` +
             `-----------------\n` +
-            `【生命值】${temp.hp}/${temp.maxHp}\n` +
-            `【魔法值】${temp.mp}/${temp.maxMp}\n` +
+            `【生命值】${temp.hp}/${temp.maxHp - (temp.equipmentUpInfo.maxHp || 0)} (+${temp.equipmentUpInfo.maxHp || 0})\n` +
+            `【魔法值】${temp.mp}/${temp.maxMp - (temp.equipmentUpInfo.maxMp || 0)} (+${temp.equipmentUpInfo.maxMp || 0})\n` +
             `【活力值】${temp.pp}/${temp.maxPp}\n` +
             `-----------------\n` +
-            `【攻击力】${temp.atk} (+0)\n` +
-            `【防御力】${temp.def} (+0)\n` +
-            `【速度值】${temp.speed} (+0)\n` +
-            `【闪避值】${temp.evasion} (+0)\n` +
-            `【命中率】${((100 + (temp.hit - 1000) / 10)).toFixed(1)}% (+0%)\n` +
-            `【暴击率】${(temp.chr / 10).toFixed(1)}% (+0%)\n` +
-            `【暴击伤害】${(temp.ghd * 100).toFixed(1)}% (+0%)` +
-            (temp.csr > 0 ? `\n【暴击抵抗】${temp.csr}` : '')
+            `【攻击力】${temp.atk} (+${temp.equipmentUpInfo.atk || 0})\n` +
+            `【防御力】${temp.def} (+${temp.equipmentUpInfo.def || 0})\n` +
+            `【速度值】${temp.speed} (+${temp.equipmentUpInfo.speed || 0})\n` +
+            `【闪避值】${temp.evasion} (+${temp.equipmentUpInfo.evasion || 0})\n` +
+            `【命中率】${((100 + (temp.hit - 1000) / 10)).toFixed(1)}% (+${temp.equipmentUpInfo.hit && Math.floor(temp.equipmentUpInfo.hit / ((100 + (temp.hit - 1000) / 10))) || 0}%)\n` +
+            `【暴击率】${(temp.chr / 10).toFixed(1)}% (+${temp.equipmentUpInfo.chr || 0}%)\n` +
+            `【暴击伤害】${(temp.ghd * 100).toFixed(1)}% (+${temp.equipmentUpInfo.ghd && (temp.equipmentUpInfo.ghd * 100).toFixed() || 0}%)` +
+            ((temp.csr + temp.equipmentUpInfo.csr) > 0 ? `\n【暴击抵抗】${temp.csr}` : '')
     },
     /** 写入用户数据到数据库 */
     async setDatabaseUserAttribute(userId: string) {

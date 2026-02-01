@@ -100,7 +100,7 @@ export const Props = {
 
             const gapTime = Date.now() - coolingTemp[userId][propsName]
             if (gapTime < propsData[propsName].cooling) {
-                await session.send(`该道具冷却还未结束，请等待${Math.ceil((coolingTemp[userId][propsName] - gapTime) / 60)}秒！`)
+                await session.send(`该道具冷却还未结束，请等待${Math.ceil((coolingTemp[userId][propsName] - gapTime) / 6000)}秒！`)
                 return
             } else {
                 coolingTemp[userId][propsName] = Date.now()

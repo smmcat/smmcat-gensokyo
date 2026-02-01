@@ -9,6 +9,7 @@ import { MonsterBaseAttribute, MonsterOccupation } from "./data/initMonster";
 import { settlementBuff } from "./data/buffFn";
 import { GensokyoMap } from "./map";
 import { UserSkill } from "./user_skill";
+import { UserEquipment } from "./equipment";
 
 declare module 'koishi' {
     interface Tables {
@@ -77,12 +78,18 @@ export type BattleAttribute = {
     speed: number,
     /** 临时增益状态 */
     gain: BuffGain,
+    /** 伤害减免 */
+    reduction: number
+    /** 治疗加成 */
+    TreatmentUp: number,
     /** 滞留状态 */
     buff: { [keys: string]: { name: string, timer: number } },
     /** 持有技能 */
     fn?: { name: string, prob: number }[],
     /** 被动技能 */
     passiveList?: string[],
+    /** 套装信息 */
+    suitMap: { [keys: string]: number },
     /** 拓展数据 */
     expand: { [keys: string]: any }
 }
@@ -874,6 +881,8 @@ function initBattleAttribute(data: UserBaseAttribute | MonsterBaseAttribute): Ba
             evasion: userData.evasion,
             hit: userData.hit,
             speed: userData.speed,
+            reduction: 0,
+            TreatmentUp: 0,
             gain: {
                 maxHp: 0,
                 maxMp: 0,
@@ -891,10 +900,14 @@ function initBattleAttribute(data: UserBaseAttribute | MonsterBaseAttribute): Ba
                 reduction: 0
             },
             buff: {},
-            fn: UserSkill.getUserSkillData(userData.userId).activeSkill,
-            passiveList: UserSkill.getUserSkillData(userData.userId).passiveSkill,
+            fn: userData.fn,
+            passiveList: userData.passiveList,
+            suitMap: userData.suitMap,
             expand: {}
         } as BattleAttribute
+
+        // 装备属性实装到战斗中
+        UserEquipment.putBattleDataTo(userData.equipmentUpInfo, temp)
         return temp
     } else {
         // 处理怪物数据
@@ -917,6 +930,8 @@ function initBattleAttribute(data: UserBaseAttribute | MonsterBaseAttribute): Ba
             evasion: monsterData.evasion,
             hit: monsterData.hit,
             speed: monsterData.speed,
+            reduction: 0,
+            TreatmentUp: 0,
             gain: {
                 maxHp: 0,
                 maxMp: 0,
@@ -938,6 +953,7 @@ function initBattleAttribute(data: UserBaseAttribute | MonsterBaseAttribute): Ba
             fn: monsterData.fn ? JSON.parse(JSON.stringify(monsterData.fn)).filter((item: { name: string, prob: number }) => {
                 return skillFn[item.name] && monsterData.lv >= skillFn[item.name].lv
             }) : [],
+            suitMap: {},
             expand: {}
         } as BattleAttribute
         console.log(temp);

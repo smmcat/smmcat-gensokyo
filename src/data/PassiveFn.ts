@@ -112,5 +112,20 @@ export const PassiveFn: PassiveDict = {
             return ``
         }
     },
-
+    "恢复": {
+        name: "恢复",
+        info: "被攻击时，有 40% 概率恢复自身 5% 最大血量(最低1血)。",
+        type: 'hit',
+        lv: 1,
+        damageFn: function (config) {
+            const val = Math.floor(config.linkAgent.goal.maxHp * 0.05) || 1
+            if (val && random(0, 10) <= 4) {
+                const value = giveCure(config.linkAgent.goal, val)
+                console.log(value);
+                
+                return `‣ ${getLineupName(config.linkAgent.goal)}触发被动 ¦${this.name}¦ HP+${value.val}`
+            }
+            return ``
+        }
+    }
 }
