@@ -219,16 +219,18 @@ export const skillFn: SkillFn = {
         useTime: 6,
         fn: function (agent, agentList, fn?) {
             const selectGoal = agent.goal
+            const cureVal = Math.floor(40 + 40 * (agent.goal.TreatmentUp + agent.goal.gain.TreatmentUp))
+            
             if (agent.goal.hp <= 0) {
                 return `${getLineupName(agent.self)}已阵亡，无法恢复...`
             }
             fn({
-                value: 40,
+                value: cureVal,
                 target: [selectGoal],
                 type: SkillType.治疗技,
                 isNext: false
             })
-            return `${getLineupName(agent.self)}释放初级治愈，${getLineupName(agent.goal)}恢复40HP`
+            return `${getLineupName(agent.self)}释放初级治愈，${getLineupName(agent.goal)}恢复${cureVal}HP`
         }
     },
     "垂死挣扎": {

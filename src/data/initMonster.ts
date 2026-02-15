@@ -144,8 +144,9 @@ export const monsterData: MonsterTempData = {
         giveMonetary: 3,
         giveProps: [
             { name: '蓝药', val: 3, radomVal: 30 },
-            { name: '初级万能药', val: 2, radomVal: 90, const: true, lv: 5 },
-            { name: '技能书-治愈之光', val: 1, radomVal: 10 }
+            { name: '初级万能药', val: 2, radomVal: 10, const: true, lv: 5 },
+            { name: '技能书-治愈之光', val: 1, radomVal: 10 },
+            { name: '新手装备礼盒', val: 1, radomVal: 30 }
         ],
         fn: [{ name: '治愈之光', prob: 1 }],
         passiveList: []
@@ -171,7 +172,8 @@ export const monsterData: MonsterTempData = {
         giveMonetary: 3,
         passiveList: [],
         giveProps: [
-            { name: '初级复活卷轴', val: 1, radomVal: 50 }
+            { name: '初级复活卷轴', val: 1, radomVal: 30 },
+            { name: '新手装备礼盒', val: 1, radomVal: 50 }
         ]
     },
     "大妖精": {
@@ -195,7 +197,8 @@ export const monsterData: MonsterTempData = {
         giveMonetary: 3,
         passiveList: [],
         giveProps: [
-            { name: '初级复活卷轴', val: 1, radomVal: 50 }
+            { name: '初级复活卷轴', val: 1, radomVal: 30 },
+            { name: '新手装备礼盒', val: 1, radomVal: 60 }
         ]
     },
     "蓬莱山辉夜": {
@@ -219,7 +222,8 @@ export const monsterData: MonsterTempData = {
         giveMonetary: 5,
         passiveList: [],
         giveProps: [
-            { name: '初级复活卷轴', val: 1, radomVal: 50 }
+            { name: '初级复活卷轴', val: 1, radomVal: 30 },
+            { name: '新手装备礼盒', val: 2, radomVal: 70 }
         ],
         fn: [{ name: '初级治愈', prob: 3 }, { name: '水炮', prob: 1 }]
     },
@@ -244,7 +248,8 @@ export const monsterData: MonsterTempData = {
         giveMonetary: 5,
         passiveList: ['剧毒'],
         giveProps: [
-            { name: '初级复活卷轴', val: 1, radomVal: 50 }, { name: '技能书-毒之牙', val: 1, radomVal: 10 }
+            { name: '初级复活卷轴', val: 1, radomVal: 30 }, { name: '技能书-毒之牙', val: 1, radomVal: 10 },
+            { name: '新手装备礼盒', val: 1, radomVal: 70 }
         ],
         fn: [{ name: '毒之牙', prob: 1 }]
     },
@@ -269,7 +274,8 @@ export const monsterData: MonsterTempData = {
         giveMonetary: 8,
         passiveList: [],
         giveProps: [
-            { name: '初级复活卷轴', val: 1, radomVal: 50 }, { name: '技能书-恐怖催眠术', val: 1, radomVal: 10 }
+            { name: '初级复活卷轴', val: 1, radomVal: 20 }, { name: '技能书-恐怖催眠术', val: 1, radomVal: 10 },
+            { name: '新手装备礼盒', val: 2, radomVal: 70 }
         ],
         fn: [{ name: '恐怖催眠术', prob: 1 }, { name: "恐怖的回忆", prob: 2 }]
     },
@@ -294,7 +300,8 @@ export const monsterData: MonsterTempData = {
         giveMonetary: 8,
         passiveList: ['反伤'],
         giveProps: [
-            { name: '大红药', val: 2, radomVal: 50 }, { name: '技能书-初级驱散', val: 1, radomVal: 10 }
+            { name: '大红药', val: 2, radomVal: 50 }, { name: '技能书-初级驱散', val: 1, radomVal: 10 },
+            { name: '新手装备礼盒', val: 1, radomVal: 30 }
         ],
         fn: [{ name: '紧闭的恋之瞳', prob: 3 }, { name: "初级驱散", prob: 1 }, { name: '无意识行动', prob: 2 }]
     },
@@ -319,7 +326,8 @@ export const monsterData: MonsterTempData = {
         giveMonetary: 3,
         passiveList: ['针女'],
         giveProps: [
-            { name: '大红药', val: 2, radomVal: 20 }, { name: '初级复活卷轴', val: 1, radomVal: 50 }
+            { name: '大红药', val: 2, radomVal: 20 }, { name: '初级复活卷轴', val: 1, radomVal: 50 },
+            { name: '新手装备礼盒', val: 1, radomVal: 30 }
         ],
         fn: [{ name: '瓦尼瓦尼', prob: 1 }]
     },
@@ -347,7 +355,8 @@ export const monsterData: MonsterTempData = {
             { name: '大红药', val: 2, radomVal: 20 },
             { name: '中级复活卷轴', val: 1, radomVal: 50 },
             { name: '技能书-飞雪', val: 1, radomVal: 10 },
-            { name: '技能书-霜月架势', val: 1, radomVal: 10 }
+            { name: '技能书-霜月架势', val: 1, radomVal: 10 },
+            { name: '新手装备礼盒', val: 3, radomVal: 80 }
         ],
         fn: [{ name: '飞雪', prob: 3 }, { name: '霜月架势', prob: 1 }]
     }

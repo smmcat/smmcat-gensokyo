@@ -130,7 +130,7 @@ class Damage {
     /** 最终结算 伤害减免 */
     beforEnd(fn: (config: DamageConfig) => void) {
         if (!this.config.isRealHarm) {
-            this.config.reductionVal = Math.floor(this.config.agent.goal.gain.reduction * this.config.harm)
+            this.config.reductionVal = Math.floor((this.config.agent.goal.reduction + this.config.agent.goal.gain.reduction) * this.config.harm)
             this.config.harm -= this.config.reductionVal
             if (this.config.harm < 0) {
                 this.config.harm = 0

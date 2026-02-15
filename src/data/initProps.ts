@@ -1,6 +1,7 @@
 import { Session } from "koishi"
 import { DatabaseUserAttribute, User } from "../users"
 import { BattleAttribute, BattleData } from "../battle"
+import { UserEquipment } from "../equipment"
 
 export enum PropType {
     消耗类 = '消耗类',
@@ -102,7 +103,7 @@ export const propsData: propsTemplateData = {
         type: PropType.消耗类,
         info: '复活玩家，复活时保留 20% 血量。(该道具使用完需要冷却 6 分钟)',
         price: 10,
-        cooling: 3600,
+        cooling: 360000,
         fn: async function (session) {
             if (BattleData.isBattleByUserId(session.userId)) {
                 session.send(`该道具在战斗中无法使用！请在小队脱离战斗后使用。`)
@@ -123,7 +124,7 @@ export const propsData: propsTemplateData = {
         type: PropType.消耗类,
         info: '复活玩家，复活时保留 80% 血量。(该道具使用完需要冷却 6 分钟)',
         price: 120,
-        cooling: 3600,
+        cooling: 360000,
         fn: async function (session) {
             if (BattleData.isBattleByUserId(session.userId)) {
                 session.send(`该道具在战斗中无法使用！请在小队脱离战斗后使用。`)
@@ -244,4 +245,15 @@ export const propsData: propsTemplateData = {
             })
         }
     },
+    "新手装备礼盒": {
+        name: "新手的勇气礼盒",
+        type: PropType.礼包类,
+        info: '通过该道具可在 "新手头盔、新手披风、新手之剑、新手鞋子、新手项链" 以下装备中随机获得一件。',
+        price: 20,
+        fn: async function (session) {
+            const equipmentList = ["新手头盔", "新手披风", "新手之剑", "新手鞋子", "新手项链"]
+            const equipment = await UserEquipment.getEquipment(session.userId, { name: equipmentList[Math.floor(equipmentList.length * Math.random())] })
+            await session.send(`恭喜获得：${equipment.name}[${equipment.fid}]`)
+        }
+    }
 }

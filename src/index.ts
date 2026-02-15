@@ -12,6 +12,9 @@ import { generateMapHTML } from './mapHtml';
 import { PassiveFn } from './data/PassiveFn';
 import { BuffFn } from './data/buffFn';
 import { UserSkill } from './user_skill';
+import { EquipmentAttrStringDict, EquipmentDictDatabase, EquipmentKeys, EquipmentValue, UserEquipment } from './equipment';
+import { equipmentData } from './data/initEquipment';
+import { propsData } from './data/initProps';
 export const name = 'smmcat-gensokyo'
 
 export const inject = {
@@ -26,18 +29,19 @@ export function apply(ctx: Context, config: Config) {
 
   ctx.on('ready', () => {
     GensokyoMap.init(config, ctx)
-    User.init(config, ctx)
+    User.init(config, ctx).then(() => UserEquipment.init(config, ctx))
     Monster.init(config, ctx)
     Props.init(config, ctx)
     UserSkill.init(config, ctx)
+
   })
   const Queue = new AsyncOperationQueue()
   const temp = {}
   ctx
     .command('幻想乡')
 
-    ctx
-      .command('幻想乡/移动操作')
+  ctx
+    .command('幻想乡/移动操作')
   ctx
     .command('移动操作/移动.上')
     .action(async ({ session }) => {
@@ -174,8 +178,8 @@ export function apply(ctx: Context, config: Config) {
       await session.send(GensokyoMap.userAreaTextFormat(userData.playName, query))
     })
 
-    ctx
-      .command('幻想乡/个人查询')
+  ctx
+    .command('幻想乡/个人查询')
   ctx
     .command('个人查询/个人属性')
     .action(async ({ session }) => {
@@ -225,10 +229,10 @@ export function apply(ctx: Context, config: Config) {
     })
 
   // ctx
-  //   .command('给我书')
+  //   .command('给我药')
   //   .action(async ({ session }) => {
   //     await session.send('稍等...')
-  //     await User.giveProps(session.userId, [{ name: '被动书-针女', val: 2 }], async (val) => {
+  //     await User.giveProps(session.userId, [{ name: '红药', val: 2 }], async (val) => {
   //       if (val.err) {
   //         session.send(val.err)
   //         return
@@ -328,6 +332,27 @@ export function apply(ctx: Context, config: Config) {
       await Props.userProps(session, props)
     })
 
+  ctx
+    .command('幻想乡/道具说明 <props>')
+    .action(async ({ session }, props) => {
+      const userData = await User.getUserAttribute(session)
+      if (!userData) return
+      GensokyoMap.initUserPoistion(session, userData)
+
+      if (!props) {
+        return `未选择道具信息，请选择道具，例如：/道具说明 红药`
+      }
+      const propsItem = propsData[props]
+      if (!propsItem) {
+        return `未找到该道具信息...`
+      }
+      return `找到该道具描述：\n\n` +
+        `【道具名】${propsItem.name}\n` +
+        `【售出价格】${propsItem.price}\n` +
+        `【道具类型】${propsItem.type}\n` +
+        `【使用冷却】${propsItem.cooling ? `${Math.floor(propsItem.cooling / 1000)}秒` : '无限制'}\n\n` +
+        `${propsItem.info}`
+    })
 
   ctx
     .command('幻想乡/补给')
@@ -521,7 +546,7 @@ export function apply(ctx: Context, config: Config) {
   ctx
     .command('幻想乡/技能系统')
   ctx
-    .command('技能系统/技能装配','查询当前配置的技能槽位')
+    .command('技能系统/技能装配', '查询当前配置的技能槽位')
     .action(async ({ session }) => {
       const userData = await User.getUserAttribute(session)
       if (!userData) return
@@ -531,7 +556,7 @@ export function apply(ctx: Context, config: Config) {
     })
 
   ctx
-    .command('技能系统/技能配置 <skillName:string> <slotIndex:posint>','设置当前配置的主动技能')
+    .command('技能系统/技能配置 <skillName:string> <slotIndex:posint>', '设置当前配置的主动技能')
     .action(async ({ session }, skillName, slotIndex) => {
       const userData = await User.getUserAttribute(session)
       if (!userData) return
@@ -544,7 +569,7 @@ export function apply(ctx: Context, config: Config) {
     })
 
   ctx
-    .command('技能系统/技能查询 <goal>','查询指定主动技能的信息说明')
+    .command('技能系统/技能查询 <goal>', '查询指定主动技能的信息说明')
     .action(async ({ session }, goal) => {
       if (!goal) return `请输入技能名，例如 /技能查询 重砍`
       if (!skillFn[goal]) return `没有存在 ${goal} 技能！`
@@ -552,17 +577,102 @@ export function apply(ctx: Context, config: Config) {
     })
 
   ctx
-    .command('技能系统/被动查询 <goal>','查询指定被动技能的信息说明')
+    .command('技能系统/被动查询 <goal>', '查询指定被动技能的信息说明')
     .action(async ({ session }, goal) => {
       if (!goal) return `请输入被动名，例如 /被动查询 吸血`
       if (!PassiveFn[goal]) return `没有存在 ${goal} 被动！`
       return `[${goal}]信息如下：\n` + PassiveFn[goal].info
     })
   ctx
-    .command('技能系统/状态查询 <goal>','查询指定状态BUFF的信息说明')
+    .command('技能系统/状态查询 <goal>', '查询指定状态BUFF的信息说明')
     .action(async ({ session }, goal) => {
       if (!goal) return `请输入技能名，例如 /状态查询 治愈`
       if (!BuffFn[goal]) return `没有存在 ${goal} 状态！`
       return `[${goal}]信息如下：\n` + BuffFn[goal].info
     })
+
+  ctx
+    .command('幻想乡/装备系统')
+
+  ctx
+    .command('装备系统/装备列表')
+    .action(async ({ session }) => {
+      const userData = await User.getUserAttribute(session)
+      if (!userData) return
+      GensokyoMap.initUserPoistion(session, userData)
+
+      await UserEquipment.getUserEquipmentInfo(session)
+    })
+  ctx
+    .command('装备系统/装备佩戴 <fid:posint>')
+    .action(async ({ session }, fid) => {
+      const userData = await User.getUserAttribute(session)
+      if (!userData) return
+      GensokyoMap.initUserPoistion(session, userData)
+
+      if (fid == undefined) return `请输入装备的编码，一般在装备名的右侧或者左侧的标识数值。例如（初级鞋子[11]若需要使用则）：\n /装备佩戴 11`
+      await UserEquipment.selectEquipmentFidToUse(session, fid)
+    })
+  // ctx
+  //   .command('装备系统/给我装备')
+  //   .action(async ({ session }) => {
+  //     const userData = await User.getUserAttribute(session)
+  //     if (!userData) return
+  //     GensokyoMap.initUserPoistion(session, userData)
+
+  //     const equipmentKeys = Object.keys(equipmentData)
+  //     const equipmentName = equipmentKeys[Math.floor(equipmentKeys.length * Math.random())]
+  //     const result = await UserEquipment.getEquipment(session.userId, { name: equipmentName })
+  //     await session.send(`你获得：${result.name}[${result.fid}]`)
+  //   })
+
+  ctx
+    .command('装备系统/当前装备')
+    .action(async ({ session }) => {
+      const userData = await User.getUserAttribute(session)
+      if (!userData) return
+      GensokyoMap.initUserPoistion(session, userData)
+
+      const currentEquipment = UserEquipment.userEquCurrentTemp[session.userId]
+      const msg = Object.keys(currentEquipment).map((item) => {
+        if (!currentEquipment[item]) return `【${EquipmentValue[item]}】 无配置`
+        const equipmentItem = currentEquipment[item] as EquipmentDictDatabase
+        return `【${EquipmentValue[item] || '未知位置'}】 Lv.${equipmentItem.forging}${equipmentItem.name}[${equipmentItem.fid}]`
+      }).join('\n')
+      return `${User.getUserName(session.userId)} 当前佩戴装备为:\n\n` + msg
+    })
+
+  ctx
+    .command('装备系统/查看装备 <fid:posint>')
+    .action(async ({ session }, fid) => {
+      const userData = await User.getUserAttribute(session)
+      if (!userData) return
+      GensokyoMap.initUserPoistion(session, userData)
+
+      if (fid == undefined) return `请输入装备的编码，一般在装备名的右侧或者左侧的标识数值。例如（初级鞋子[11]若需要查询则）：\n /查看装备 11`
+      await UserEquipment.getEquipmentDetailByFid(session, fid)
+    })
+
+  ctx
+    .command('装备系统/销毁装备 <fid:posint>')
+    .action(async ({ session }, fid) => {
+      if (fid == undefined) return `请输入装备的编码，一般在装备名的右侧或者左侧的标识数值。例如（初级鞋子[11]若需要销毁则）：\n /销毁装备 11`
+      await UserEquipment.destroyEquipment(session, fid)
+    })
+
+  // 循环生成卸载所有装备指令
+  const equipmentCommend = Object.keys(EquipmentKeys).map((item) => {
+    return { name: item, keyword: EquipmentKeys[item] }
+  })
+  for (const item of equipmentCommend) {
+    ctx
+      .command(`装备系统/卸下${item.name}`)
+      .action(async ({ session }) => {
+        const userData = await User.getUserAttribute(session)
+        if (!userData) return
+        GensokyoMap.initUserPoistion(session, userData)
+
+        await UserEquipment.unloadEquipment(session, item.keyword)
+      })
+  }
 }
