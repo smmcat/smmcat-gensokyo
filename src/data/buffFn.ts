@@ -1,5 +1,6 @@
 import { BattleAttribute, BuffGain, getLineupName } from "../battle";
 import { BuffDamage, giveCure } from "../damage";
+import { User } from "../users";
 import { random } from "../utlis";
 
 
@@ -43,7 +44,8 @@ interface TreatmentBuffParams {
 interface HarmBuffParams {
     type: BuffType.伤害,
     val: number,
-    isRealHarm?: boolean
+    isRealHarm?: boolean,
+    msg?: string
 }
 
 type BuffItemParams =
@@ -235,6 +237,31 @@ export const BuffFn: BuffFnList = {
                 }
             })
         }
+    },
+    "引燃": {
+        name: "引燃",
+        type: BuffType.伤害,
+        info: "自身每回合受到 3% 最大血量的真实伤害和 3% 的MP损失（最低扣除1血1蓝，最高20血，20蓝）",
+        fn: function (agent: BattleAttribute, fn?) {
+            if (agent.hp <= 0) return
+            const val = Math.min(20, Math.floor((agent.maxHp) * 0.03) || 1);
+            let mpVal = Math.min(20, Math.floor((agent.maxMp) * 0.03) || 1);
+            // 额外扣除 MP值
+            if (agent.mp) {
+                agent.mp -= mpVal
+                if (agent.mp < 0) {
+                    agent.mp = 0
+                }
+            } else {
+                mpVal = 0
+            }
+            fn && fn({
+                type: BuffType.伤害,
+                val,
+                isRealHarm: true,
+                msg: mpVal ? `，mp扣除了${mpVal}值。` : ''
+            })
+        }
     }
 }
 
@@ -321,7 +348,7 @@ export function settlementBuff(agent: BattleAttribute) {
             case BuffType.伤害:
                 buffInfo.fn(agent, (val: HarmBuffParams) => {
                     const value = new BuffDamage(val.val, agent, val.isRealHarm).giveDamage()
-                    msgList.push(`${buffInfo.name}-${value}HP`)
+                    msgList.push(`${buffInfo.name}-${value}HP` + (val.msg ? val.msg : ''))
                 })
                 break;
             case BuffType.治疗:
