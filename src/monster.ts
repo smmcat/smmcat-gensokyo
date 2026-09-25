@@ -52,7 +52,7 @@ export const Monster = {
         } else {
             const temp = {} as MonsterTempData
             monsterData.forEach((item) => {
-                temp[item.id] = item
+                temp[item.name] = item
             })
             Monster.monsterTempData = temp
         }
@@ -120,7 +120,7 @@ export const Monster = {
     /** 格式化怪物属性数据 */
     monsterAttributeTextFormat(monster: MonsterBaseAttribute & { lv: number }) {
         const { name, type, lv, hp, maxHp, mp, maxMp, atk, def, chr, evasion, hit, ghd, speed, info, pic, giveProps, passiveList } = monster
-        const propsList = giveProps
+        const propsList = (giveProps || [])
             .filter((item) => item.lv ? lv >= item.lv : true)
             .map(item => item.name)
 
@@ -136,7 +136,7 @@ export const Monster = {
             `【命中率】${(100 + (hit - 1000) / 10).toFixed(1)}%\n` +
             `【暴击率】${(chr / 10).toFixed(1)}%\n` +
             `【爆伤倍率】${(ghd * 100).toFixed(0)}%` +
-            (passiveList.length ? `\n【被动技能】${passiveList.join('、')}` : '') +
+            (passiveList?.length ? `\n【被动技能】${passiveList.join('、')}` : '') +
             (propsList?.length ? `\n【概率掉落道具】` + propsList.join('、') : '') +
             (info ? '\n\n' + info : '')
         return attributeText

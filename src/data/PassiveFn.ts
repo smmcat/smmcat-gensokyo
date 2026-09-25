@@ -121,11 +121,44 @@ export const PassiveFn: PassiveDict = {
             const val = Math.floor(config.linkAgent.goal.maxHp * 0.05) || 1
             if (val && random(0, 10) <= 4) {
                 const value = giveCure(config.linkAgent.goal, val)
-                console.log(value);
-                
                 return `‣ ${getLineupName(config.linkAgent.goal)}触发被动 ¦${this.name}¦ HP+${value.val}`
             }
             return ``
+        }
+    },
+    "剧毒": {
+        name: "剧毒",
+        info: "造成伤害时有20%概率为目标附加中毒状态2回合，对已在中毒状态的目标 80% 概率直接催化中毒（结算剩余中毒总计伤害）",
+        type: 'atk',
+        lv: 10,
+        damageFn: function (config) {
+            if (config.linkAgent.goal.buff['中毒'] && random(0, 10) <= 8) {
+                const timeVal = config.linkAgent.goal.buff['中毒'].timer
+                clearBuff(config.linkAgent.goal, { name: "中毒" })
+                const upDamage = Math.min(20, Math.floor((config.agent.goal.maxHp + config.agent.goal.maxHp) * 0.05) || 1) * timeVal
+                const value = new BuffDamage(upDamage, config.linkAgent.goal, true).giveDamage()
+                return `‣ ${getLineupName(config.linkAgent.self)}触发被动 ¦${this.name}¦ 催化中毒${buffTimeFormat(timeVal)} 目标HP-${value}`
+            } else {
+                if (random(0, 10) <= 2) {
+                    giveBuff(config.linkAgent.goal, { name: "中毒", timer: 2 })
+                    return `‣ ${getLineupName(config.linkAgent.self)}触发被动 ¦${this.name}¦ 附着2回合⌈中毒⌋`
+                }
+                return ``
+            }
+        }
+    },
+    "伤魂鸟": {
+        name: "伤魂鸟",
+        info: "自身当前血量每少于 1%，当前伤害加成就提升 0.5%",
+        type: 'atk',
+        lv: 5,
+        damageFn: function (config) {
+            if (config.linkAgent.self.hp == config.linkAgent.self.maxHp) {
+                return ``
+            }
+            const val = Math.floor(config.harm * ((1 - (config.linkAgent.self.hp / config.linkAgent.self.maxHp)) / 2))
+            config.harm += val
+            return `‣ ${getLineupName(config.linkAgent.self)}触发被动 ¦${this.name}¦ 伤害+${val}`
         }
     }
 }

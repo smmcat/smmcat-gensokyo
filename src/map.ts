@@ -2,11 +2,12 @@ import { Context, Session } from "koishi";
 import { Config } from ".";
 import { User, UserBaseAttribute } from "./users";
 import { BattleData } from "./battle";
+import { base64ToWebUrl, random } from "./utlis";
+import { Chat } from "./chatSend";
+import { AreaType, BseMap } from "./data/initMap";
+import { generateMiniMapHTML } from "./mapHtml";
 
-/** 区域类型枚举 */
-export enum AreaType {
-    安全区 = "安全区", 冒险区 = "冒险区", 商店 = "商店", 地牢 = "地牢", 传送门 = "传送门", 禁用 = "禁用", BOSS区 = "BOSS区"
-}
+
 declare module 'koishi' {
     interface Tables {
         smm_gensokyo_map_position: UserPosition
@@ -44,7 +45,7 @@ export type AreaItem = {
 }
 
 /** 顶级区域数据 */
-type BaseAreaData = {
+export type BaseAreaData = {
     /** 世界层 */
     [keys: number]: {
         /** 区域 */
@@ -53,7 +54,7 @@ type BaseAreaData = {
 }
 
 /** 移动后的区域信息 */
-type AreaCallbackData = {
+export type AreaCallbackData = {
     user: UserPosition,
     map: AreaItem
 }
@@ -102,330 +103,7 @@ export const GensokyoMap = {
         })
 
         // 地图数据
-        GensokyoMap.mapLocalData = {
-            1: {
-                "地下墓穴": {
-                    floor: 1,
-                    areaName: "地下墓穴",
-                    type: AreaType.BOSS区,
-                    needLv: 10,
-                    down: "蜘蛛洞穴",
-                    monster: [{ name: "古明地觉", lv: 15 }]
-                },
-                "蜘蛛洞穴": {
-                    floor: 1,
-                    areaName: "蜘蛛洞穴",
-                    type: AreaType.冒险区,
-                    needLv: 1,
-                    top: "地下墓穴",
-                    down: "蜘蛛森林一"
-                },
-                "蜘蛛森林一": {
-                    floor: 1,
-                    areaName: "蜘蛛森林一",
-                    type: AreaType.冒险区,
-                    needLv: 1,
-                    monster: [{ name: "小蜘蛛", lv: 2 }],
-                    top: "蜘蛛洞穴",
-                    left: "蜘蛛森林二",
-                    right: "蜘蛛森林三",
-                    down: "蜘蛛森林通道"
-                },
-                "蜘蛛森林二": {
-                    floor: 1,
-                    areaName: "蜘蛛森林二",
-                    type: AreaType.冒险区,
-                    needLv: 1,
-                    right: "蜘蛛森林一"
-                },
-                "蜘蛛森林三": {
-                    floor: 1,
-                    areaName: "蜘蛛森林三",
-                    type: AreaType.冒险区,
-                    needLv: 1,
-                    left: "蜘蛛森林一",
-                    monster: [{ name: '大妖精', lv: 3 }]
-                },
-                "蜘蛛森林通道": {
-                    floor: 1,
-                    areaName: "蜘蛛森林通道",
-                    type: AreaType.冒险区,
-                    needLv: 1,
-                    top: "蜘蛛森林一",
-                    down: "中央广场"
-                },
-                "中央广场": {
-                    floor: 1,
-                    areaName: "中央广场",
-                    info: "一层的中心位置，梦开始的地方",
-                    npc: ["aipo"],
-                    type: AreaType.安全区,
-                    needLv: 1,
-                    top: "蜘蛛森林通道",
-                    down: "新手村",
-                    left: "酒馆",
-                    right: "银行"
-                },
-                "酒馆": {
-                    floor: 1,
-                    areaName: "酒馆",
-                    type: AreaType.安全区,
-                    needLv: 1,
-                    down: "传送门",
-                    right: "中央广场"
-                },
-                "银行": {
-                    floor: 1,
-                    areaName: "银行",
-                    type: AreaType.安全区,
-                    needLv: 1,
-                    down: "1层-商店",
-                    left: "中央广场"
-                },
-                "1层-商店": {
-                    floor: 1,
-                    areaName: "1层-商店",
-                    type: AreaType.安全区,
-                    needLv: 1,
-                    right: "农田",
-                    left: "新手村"
-                },
-                "传送门": {
-                    floor: 1,
-                    areaName: "传送门",
-                    type: AreaType.传送门,
-                    needLv: 1,
-                    top: "酒馆",
-                    right: "新手村",
-                    left: "爱之湖"
-                },
-                "爱之湖": {
-                    floor: 1,
-                    areaName: "爱之湖",
-                    type: AreaType.安全区,
-                    needLv: 1,
-                    right: "传送门"
-                },
-                "新手村": {
-                    floor: 1,
-                    areaName: "新手村",
-                    type: AreaType.安全区,
-                    needLv: 1,
-                    top: "中央广场",
-                    down: "绿野平原通道",
-                    left: "传送门",
-                    right: "1层-商店"
-                },
-                "绿野平原通道": {
-                    floor: 1,
-                    areaName: "绿野平原通道",
-                    type: AreaType.安全区,
-                    needLv: 1,
-                    top: "新手村",
-                    down: "绿野平原一"
-                },
-                "绿野平原一": {
-                    floor: 1,
-                    areaName: "绿野平原一",
-                    type: AreaType.冒险区,
-                    monster: [{ name: "小蜜蜂", lv: 1 }, { name: 'dora', lv: 2 }],
-                    needLv: 1,
-                    top: "绿野平原通道",
-                    left: "绿野平原二",
-                    right: "绿野平原三",
-                    down: "绿野平原四"
-                },
-                "绿野平原二": {
-                    floor: 1,
-                    areaName: "绿野平原二",
-                    type: AreaType.冒险区,
-                    monster: [{ name: 'dora', lv: 2 }, { name: 'dora', lv: 2 }, { name: 'dora', lv: 3 }, { name: 'dora', lv: 2 }],
-                    needLv: 1,
-                    right: "绿野平原一",
-                    down: "绿野平原五"
-                },
-                "绿野平原三": {
-                    floor: 1,
-                    areaName: "绿野平原三",
-                    type: AreaType.冒险区,
-                    monster: [{ name: 'dora', lv: 5 }],
-                    needLv: 1,
-                    left: "绿野平原一",
-                    down: "绿野平原六"
-                },
-                "绿野平原四": {
-                    floor: 1,
-                    areaName: "绿野平原四",
-                    type: AreaType.冒险区,
-                    needLv: 1,
-                    top: "绿野平原一",
-                    down: "野猪巢穴",
-                    left: "绿野平原五",
-                    right: "绿野平原六",
-                    monster: [{ name: '琪露诺', lv: 10 }]
-                },
-                "绿野平原五": {
-                    floor: 1,
-                    areaName: "绿野平原五",
-                    type: AreaType.冒险区,
-                    needLv: 1,
-                    top: "绿野平原二",
-                    right: "绿野平原四"
-                },
-                "绿野平原六": {
-                    floor: 1,
-                    areaName: "绿野平原六",
-                    type: AreaType.冒险区,
-                    needLv: 1,
-                    left: "绿野平原四",
-                    top: "绿野平原三",
-                    monster: [{ name: "绿毒蛇", lv: 32 }]
-                },
-                "野猪巢穴": {
-                    floor: 1,
-                    areaName: "野猪巢穴",
-                    type: AreaType.BOSS区,
-                    needLv: 15,
-                    top: "绿野平原四",
-                    monster: [{ name: '蓬莱山辉夜', lv: 20 }]
-                }
-            },
-            2: {
-                "传送门": {
-                    floor: 2,
-                    areaName: "传送门",
-                    type: AreaType.传送门,
-                    needLv: 1,
-                    right: "希望之泉"
-                },
-                "希望之泉": {
-                    floor: 2,
-                    areaName: "希望之泉",
-                    type: AreaType.安全区,
-                    needLv: 1,
-                    top: "爱之湖",
-                    down: "农田",
-                    left: "传送门",
-                    right: "2层-商店",
-                },
-                "爱之湖": {
-                    floor: 2,
-                    areaName: "爱之湖",
-                    type: AreaType.安全区,
-                    needLv: 1,
-                    down: "希望之泉",
-                    right: "旅馆"
-                },
-                "农田": {
-                    floor: 2,
-                    areaName: "农田",
-                    type: AreaType.安全区,
-                    needLv: 1,
-                    top: "希望之泉",
-                    right: "银行"
-                },
-                "银行": {
-                    floor: 2,
-                    areaName: "银行",
-                    type: AreaType.安全区,
-                    needLv: 1,
-                    top: "2层-商店",
-                    left: "农田"
-                },
-                "旅馆": {
-                    floor: 2,
-                    areaName: "旅馆",
-                    type: AreaType.安全区,
-                    needLv: 1,
-                    down: "2层-商店",
-                    left: "爱之湖"
-                },
-                "2层-商店": {
-                    floor: 2,
-                    areaName: "2层-商店",
-                    type: AreaType.安全区,
-                    needLv: 1,
-                    top: "旅馆",
-                    left: "希望之泉",
-                    right: "大草场",
-                    down: "银行"
-                },
-                "大草场": {
-                    floor: 2,
-                    areaName: "大草场",
-                    type: AreaType.安全区,
-                    needLv: 1,
-                    left: "2层-商店",
-                    right: "森林岔口"
-                },
-                "森林岔口": {
-                    floor: 2,
-                    areaName: "森林岔口",
-                    type: AreaType.BOSS区,
-                    needLv: 1,
-                    left: "大草场",
-                    top: "宁静森林二",
-                    down: "咆哮森林",
-                    monster: [{ name: '古明地恋', lv: 25 }]
-                },
-                "宁静森林二": {
-                    floor: 2,
-                    areaName: "宁静森林二",
-                    type: AreaType.冒险区,
-                    needLv: 1,
-                    top: "宁静部落",
-                    down: "森林岔口",
-                    monster: [{ name: "白洲梓", lv: 20 }]
-                },
-                "宁静部落": {
-                    floor: 2,
-                    areaName: "宁静部落",
-                    type: AreaType.冒险区,
-                    needLv: 1,
-                    top: "勇者祭坛",
-                    down: "宁静森林二"
-                },
-                "勇者祭坛": {
-                    floor: 2,
-                    areaName: "勇者祭坛",
-                    type: AreaType.冒险区,
-                    needLv: 1,
-                    down: "宁静部落"
-                },
-                "咆哮森林": {
-                    floor: 2,
-                    areaName: "咆哮森林",
-                    type: AreaType.冒险区,
-                    needLv: 1,
-                    top: "森林岔口",
-                    down: "咆哮森林二"
-                },
-                "咆哮森林二": {
-                    floor: 2,
-                    areaName: "咆哮森林二",
-                    type: AreaType.冒险区,
-                    needLv: 1,
-                    top: "咆哮森林",
-                    down: "咆哮营地"
-                },
-                "咆哮营地": {
-                    floor: 2,
-                    areaName: "咆哮营地",
-                    type: AreaType.冒险区,
-                    needLv: 1,
-                    top: "咆哮森林二",
-                    down: "竞技场"
-                },
-                "竞技场": {
-                    floor: 2,
-                    areaName: "竞技场",
-                    type: AreaType.冒险区,
-                    needLv: 1,
-                    top: "咆哮营地",
-                    monster: [{ name: "星见雅", lv: 30 }]
-                }
-            }
-        }
+        GensokyoMap.mapLocalData = BseMap
         console.log(JSON.stringify(GensokyoMap.mapLocalData));
 
         // 位置信息获取
@@ -480,33 +158,33 @@ export const GensokyoMap = {
             const userCurrentArea = GensokyoMap.userCurrentLoal[session.userId] || {} as UserPosition
             const { floor, areaName, moveing } = userCurrentArea
             if (moveing) {
-                await session.send('当前移动冷却中，请稍等...')
+                await Chat.send(session, '当前移动冷却中，请稍等...')
                 return
             }
             if (!(floor && areaName)) {
-                await session.send('您当前位置有误，请使用(还没写好的指令)脱离卡死...')
+                await Chat.send(session, '您当前位置有误，请使用(还没写好的指令)脱离卡死...')
                 return
             }
             userCurrentArea.moveing = true
             const nowPosition = GensokyoMap.mapLocalData[floor][areaName]
             if (!nowPosition[type]) {
-                await session.send('抱歉，此路不通！')
+                await Chat.send(session, '抱歉，此路不通！')
                 userCurrentArea.moveing = false
                 return
             }
             const newArea = GensokyoMap.mapLocalData[floor][nowPosition[type]]
             if (!newArea) {
-                await session.send('进入失败，地图中不存在 ' + nowPosition[type] + ' 这个区域。')
+                await Chat.send(session, '进入失败，地图中不存在 ' + nowPosition[type] + ' 这个区域。')
                 userCurrentArea.moveing = false
                 return
             }
             if (newArea.type == AreaType.禁用) {
-                await session.send(`该区域暂时未开放...`)
+                await Chat.send(session, `该区域暂时未开放...`)
                 userCurrentArea.moveing = false
                 return
             }
             if (newArea.needLv > User.userTempData[session.userId].lv) {
-                await session.send(`当前区域由于您的等级未达到最低要求，暂时无法进入。\n需要等级：${newArea.needLv}级`)
+                await Chat.send(session, `当前区域由于您的等级未达到最低要求，暂时无法进入。\n需要等级：${newArea.needLv}级`)
                 userCurrentArea.moveing = false
                 return
             }
@@ -523,7 +201,7 @@ export const GensokyoMap = {
                 // 队伍中是否存在低于目标地图要求进入等级的玩家
                 const belowUser = myTeamList.filter((teamUserId) => newArea.needLv > User.userTempData[teamUserId].lv)
                 if (belowUser.length) {
-                    await session.send(`移动失败！队伍存在限制进入等级(lv.${newArea.needLv})玩家，\n` +
+                    await Chat.send(session, `移动失败！队伍存在限制进入等级(lv.${newArea.needLv})玩家，\n` +
                         `目前限制进入的玩家：\n${belowUser.map((item) => {
                             return `Lv.${User.userTempData[item].lv} ${User.userTempData[item].playName}`
                         }).join('\n')}`
@@ -557,32 +235,48 @@ export const GensokyoMap = {
             }
         }
     },
+    /** 发起遭遇战 */
+    async encounter(session: Session, val: AreaCallbackData) {
+        // 概率遇到怪物
+        if (val.map.type == AreaType.冒险区 && val.map.monster?.length) {
+            if (random(0, 10) <= 9) {
+                const selectMonster = val.map.monster[random(0, val.map.monster.length - 1)]
+                if (GensokyoMap.config.useMd) {
+                    const msg = `糟糕！你被 Lv.${selectMonster.lv} ${selectMonster.name} 发现，即将进行战斗！你可发送 [打怪攻击](mqqapi://aio/inlinecmd?command=/打怪攻击&enter=false&reply=false) 或者 [打怪技能](mqqapi://aio/inlinecmd?command=/打怪技能&enter=false&reply=false) 进行对战。`
+                    await Chat.send(session, msg)
+                } else {
+                    await Chat.send(session, `糟糕！你被 Lv.${selectMonster.lv} ${selectMonster.name} 发现，强制发生战斗！`)
+                }
+                await BattleData.createBattleByMonster(session, [selectMonster])
+            }
+        }
+    },
     /** 用户传送楼层 */
     async jumpFloor(session: Session, afterFloor: number, fn?: (area: AreaCallbackData) => Promise<void>) {
         const userCurrentArea = GensokyoMap.userCurrentLoal[session.userId] || {} as UserPosition
         const { floor, areaName, moveing } = userCurrentArea
         if (moveing) {
-            await session.send('当前移动冷却中，请稍等...')
+            await Chat.send(session, '当前移动冷却中，请稍等...')
             return
         }
         if (!(floor && areaName)) {
-            await session.send('您当前位置有误，请使用(还没写好的指令)脱离卡死...')
+            await Chat.send(session, '您当前位置有误，请使用(还没写好的指令)脱离卡死...')
             return
         }
         if (floor == afterFloor) {
-            await session.send('目标层和当前层一致，无需传送！')
+            await Chat.send(session, '目标层和当前层一致，无需传送！')
             return
         }
         userCurrentArea.moveing = true
         const newFloorMap = GensokyoMap.mapLocalData[afterFloor]
         if (!newFloorMap) {
-            await session.send('未存在该层，传送失败！')
+            await Chat.send(session, '未存在该层，传送失败！')
             userCurrentArea.moveing = false
             return
         }
         const currentArea = Object.keys(newFloorMap).find((areaName) => newFloorMap[areaName].type == AreaType.传送门)
         if (!currentArea) {
-            await session.send('目标传送层不存在传送门区域，传送失败...')
+            await Chat.send(session, '目标传送层不存在传送门区域，传送失败...')
             userCurrentArea.moveing = false
             return
         }
@@ -602,7 +296,7 @@ export const GensokyoMap = {
             // 队伍中是否存在低于目标地图要求进入等级的玩家
             const belowUser = myTeamList.filter((teamUserId) => afterArea.needLv > User.userTempData[teamUserId].lv)
             if (belowUser.length) {
-                await session.send(`移动失败！队伍存在限制进入等级(lv.${afterArea.needLv})玩家，\n` +
+                await Chat.send(session, `移动失败！队伍存在限制进入等级(lv.${afterArea.needLv})玩家，\n` +
                     `目前限制进入的玩家：\n${belowUser.map((item) => {
                         return `Lv.${User.userTempData[item].lv} ${User.userTempData[item].playName}`
                     }).join('\n')}`
@@ -645,7 +339,7 @@ export const GensokyoMap = {
         return liveUser
     },
     /** 区域信息格式化 */
-    userAreaTextFormat(gameName: string, data: AreaCallbackData) {
+    async userAreaTextFormat(gameName: string, data: AreaCallbackData) {
         const liveUser = []
         // 获取区域玩家信息
         Object.keys(GensokyoMap.userCurrentLoal).forEach((userId) => {
@@ -656,13 +350,68 @@ export const GensokyoMap = {
                 }
             }
         })
-        const str = `${gameName}[萌新] 当前位置：\n`
+        let html = ''
+        if (GensokyoMap.config.openCurrentMap) {
+            try {
+                const mapLocal = GensokyoMap.mapLocalData[data.map.floor]
+                const maphtml = generateMiniMapHTML(mapLocal, data.map.areaName)
+                html = await GensokyoMap.ctx.puppeteer.render(maphtml)
+            } catch (error) {
+                console.log(error);
+            }
+        }
+
+        const str = html + `${gameName}[萌新] 当前位置：\n`
         const mapInfo = `区域：【${data.map.areaName}】\n` +
             (data.map.info ? data.map.info + '\n\n' : '\n') +
             (data.map.top ? `上：【${data.map.top}】\n` : '') +
             (data.map.down ? `下：【${data.map.down}】\n` : '') +
             (data.map.left ? `左：【${data.map.left}】\n` : '') +
             (data.map.right ? `右：【${data.map.right}】\n` : '') +
+            (data.map.type == AreaType.传送门 ? `\n[!]传送门区域` : '') +
+            (data.map.shopName ? `\n[!]存在商店：${data.map.shopName}` : '') +
+            (data.map.npc ? `\n[!]存在npc：${data.map.npc.join('、')}` : '') +
+            (data.map.monster ? `\n[!]存在野怪：${data.map.monster.map(i => `lv.${i.lv} ${i.name}`).join('、')}` : '') +
+            (liveUser.length ? `\n[!]区域玩家：${liveUser.length > 3 ? liveUser.slice(0, 3).join('、') +
+                `...等${liveUser.length}名玩家` : liveUser.join('、')}` : '')
+        return str + mapInfo
+    },
+    /** 区域信息 md 格式化 */
+    async userAreaTextMdFormat(gameName: string, data: AreaCallbackData) {
+        const liveUser = []
+        // 获取区域玩家信息
+        Object.keys(GensokyoMap.userCurrentLoal).forEach((userId) => {
+            const areaItem = GensokyoMap.userCurrentLoal[userId]
+            if (areaItem.areaName == data.map.areaName && areaItem.floor == data.map.floor) {
+                if (gameName !== areaItem.playName) {
+                    liveUser.push(areaItem.playName)
+                }
+            }
+        })
+        let picUrl = null
+        if (GensokyoMap.config.openCurrentMap) {
+            const mapLocal = GensokyoMap.mapLocalData[data.map.floor]
+            const maphtml = generateMiniMapHTML(mapLocal, data.map.areaName)
+            const html = await GensokyoMap.ctx.puppeteer.render(maphtml)
+            const reg = /<img\b[^>]*\bsrc\s*=\s*["'](data:[^"']+)["'][^>]*\/?>/i;
+            const match = html.match(reg);
+            const src = match?.[1];
+            if (src) {
+                try {
+                    picUrl = await base64ToWebUrl(src, GensokyoMap.ctx)
+                } catch (error) {
+                    console.log(error);
+                }
+            }
+        }
+        const str = `${gameName}[萌新] 当前位置：\n`
+        const mapInfo = `${picUrl ? `![pic #300px #187px](${picUrl})\n` : ''}` +
+            `区域：【${data.map.areaName}】\n` +
+            (data.map.info ? data.map.info + '\n\n' : '\n') +
+            (data.map.top ? `上：[【${data.map.top}】](mqqapi://aio/inlinecmd?command=/移动 上&enter=true&reply=false)\n` : '') +
+            (data.map.down ? `下：[【${data.map.down}】](mqqapi://aio/inlinecmd?command=/移动 下&enter=true&reply=false)\n` : '') +
+            (data.map.left ? `左：[【${data.map.left}】](mqqapi://aio/inlinecmd?command=/移动 左&enter=true&reply=false)\n` : '') +
+            (data.map.right ? `右：[【${data.map.right}】](mqqapi://aio/inlinecmd?command=/移动 右&enter=true&reply=false)\n` : '') +
             (data.map.type == AreaType.传送门 ? `\n[!]传送门区域` : '') +
             (data.map.shopName ? `\n[!]存在商店：${data.map.shopName}` : '') +
             (data.map.npc ? `\n[!]存在npc：${data.map.npc.join('、')}` : '') +

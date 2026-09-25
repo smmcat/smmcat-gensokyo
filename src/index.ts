@@ -1,40 +1,55 @@
-import { Context, Schema } from 'koishi'
+import { Context, Schema, Session } from 'koishi'
 import type { } from 'koishi-plugin-monetary'
 import { } from 'koishi-plugin-puppeteer'
-import { AreaType, GensokyoMap, MoveType } from './map';
+import { AreaCallbackData, GensokyoMap, MoveType } from './map';
 import { User } from './users';
 import { Monster } from './monster';
 import { BattleData } from './battle';
 import { AsyncOperationQueue, random } from './utlis';
 import { skillFn } from './data/skillFn';
 import { Props } from './props';
-import { generateMapHTML } from './mapHtml';
+import { generateMapHTML, generateMiniMapHTML } from './mapHtml';
 import { PassiveFn } from './data/PassiveFn';
 import { BuffFn } from './data/buffFn';
 import { UserSkill } from './user_skill';
 import { EquipmentAttrStringDict, EquipmentDictDatabase, EquipmentKeys, EquipmentValue, UserEquipment } from './equipment';
-import { equipmentData } from './data/initEquipment';
+import { equipmentData, SuitDict } from './data/initEquipment';
 import { propsData } from './data/initProps';
+import { Chat } from './chatSend';
+import { BankFn } from './bank';
+import { AreaType } from './data/initMap';
 export const name = 'smmcat-gensokyo'
 
 export const inject = {
   required: ['monetary', 'database', 'puppeteer']
 };
 
-export interface Config { }
+export interface Config {
+  useMd: boolean,
+  botId: string,
+  currency: string,
+  openCurrentMap: boolean
+}
 
-export const Config: Schema<Config> = Schema.object({})
+export const Config: Schema<Config> = Schema.object({
+  useMd: Schema.boolean().default(false).description("在QQbot中使用MD发送消息"),
+  botId: Schema.string().description('qqbot的id (由于不会写自动获取需要手动，后续版本自动)'),
+  currency: Schema.string().default('货币').description('货币名'),
+  openCurrentMap: Schema.boolean().default(true).description("开启即时小地图"),
+})
 
 export function apply(ctx: Context, config: Config) {
 
   ctx.on('ready', () => {
+    Chat.init(config, ctx)
     GensokyoMap.init(config, ctx)
     User.init(config, ctx).then(() => UserEquipment.init(config, ctx))
     Monster.init(config, ctx)
     Props.init(config, ctx)
     UserSkill.init(config, ctx)
-
+    BankFn.init(config, ctx)
   })
+
   const Queue = new AsyncOperationQueue()
   const temp = {}
   ctx
@@ -61,15 +76,16 @@ export function apply(ctx: Context, config: Config) {
         return `你已经阵亡，请发送 /补给 进行治疗。`
       }
       GensokyoMap.move(session, MoveType.上, async (val) => {
-        await session.send(GensokyoMap.userAreaTextFormat(userData.playName, val))
-        // 概率遇到怪物
-        if (val.map.type == AreaType.冒险区 && val.map.monster?.length) {
-          if (random(0, 10) <= 2) {
-            const selectMonster = val.map.monster[random(0, val.map.monster.length - 1)]
-            await session.send(`糟糕！你被 Lv.${selectMonster.lv} ${selectMonster.name} 发现，强制开启战斗！`)
-            await BattleData.createBattleByMonster(session, [selectMonster])
-          }
+
+        if (config.useMd && Chat.isUseMd(session)) {
+          const mdStr = await GensokyoMap.userAreaTextMdFormat(userData.playName, val)
+          await Chat.send(session, mdStr)
+        } else {
+          const str = await GensokyoMap.userAreaTextFormat(userData.playName, val)
+          await Chat.send(session, str)
         }
+        // 概率遇到怪物
+        await GensokyoMap.encounter(session, val)
       })
     })
   ctx
@@ -91,15 +107,16 @@ export function apply(ctx: Context, config: Config) {
         return `你已经阵亡，请发送 /补给 进行治疗。`
       }
       GensokyoMap.move(session, MoveType.下, async (val) => {
-        await session.send(GensokyoMap.userAreaTextFormat(userData.playName, val))
-        // 概率遇到怪物
-        if (val.map.type == AreaType.冒险区 && val.map.monster?.length) {
-          if (random(0, 10) <= 2) {
-            const selectMonster = val.map.monster[random(0, val.map.monster.length - 1)]
-            await session.send(`糟糕！你被 Lv.${selectMonster.lv} ${selectMonster.name} 发现，强制发生战斗！`)
-            await BattleData.createBattleByMonster(session, [selectMonster])
-          }
+
+        if (config.useMd && Chat.isUseMd(session)) {
+          const mdStr = await GensokyoMap.userAreaTextMdFormat(userData.playName, val)
+          await Chat.send(session, mdStr)
+        } else {
+          const str = await GensokyoMap.userAreaTextFormat(userData.playName, val)
+          await Chat.send(session, str)
         }
+        // 概率遇到怪物
+        await GensokyoMap.encounter(session, val)
       })
     })
   ctx
@@ -121,15 +138,15 @@ export function apply(ctx: Context, config: Config) {
         return `你已经阵亡，请发送 /补给 进行治疗。`
       }
       GensokyoMap.move(session, MoveType.左, async (val) => {
-        await session.send(GensokyoMap.userAreaTextFormat(userData.playName, val))
-        // 概率遇到怪物
-        if (val.map.type == AreaType.冒险区 && val.map.monster?.length) {
-          if (random(0, 10) <= 2) {
-            const selectMonster = val.map.monster[random(0, val.map.monster.length - 1)]
-            await session.send(`糟糕！你被 Lv.${selectMonster.lv} ${selectMonster.name} 发现，强制发生战斗！`)
-            await BattleData.createBattleByMonster(session, [selectMonster])
-          }
+        if (config.useMd && Chat.isUseMd(session)) {
+          const mdStr = await GensokyoMap.userAreaTextMdFormat(userData.playName, val)
+          await Chat.send(session, mdStr)
+        } else {
+          const str = await GensokyoMap.userAreaTextFormat(userData.playName, val)
+          await Chat.send(session, str)
         }
+        // 概率遇到怪物
+        await GensokyoMap.encounter(session, val)
       })
     })
   ctx
@@ -151,17 +168,18 @@ export function apply(ctx: Context, config: Config) {
         return `你已经阵亡，请发送 /补给 进行治疗。`
       }
       GensokyoMap.move(session, MoveType.右, async (val) => {
-        await session.send(GensokyoMap.userAreaTextFormat(userData.playName, val))
-        // 概率遇到怪物
-        if (val.map.type == AreaType.冒险区 && val.map.monster?.length) {
-          if (random(0, 10) <= 2) {
-            const selectMonster = val.map.monster[random(0, val.map.monster.length - 1)]
-            await session.send(`糟糕！你被 Lv.${selectMonster.lv} ${selectMonster.name} 发现，强制发生战斗！`)
-            await BattleData.createBattleByMonster(session, [selectMonster])
-          }
+        if (config.useMd && Chat.isUseMd(session)) {
+          const mdStr = await GensokyoMap.userAreaTextMdFormat(userData.playName, val)
+          await Chat.send(session, mdStr)
+        } else {
+          const str = await GensokyoMap.userAreaTextFormat(userData.playName, val)
+          await Chat.send(session, str)
         }
+        // 概率遇到怪物
+        await GensokyoMap.encounter(session, val)
       })
     })
+
   ctx
     .command('幻想乡/位置')
     .action(async ({ session }) => {
@@ -175,7 +193,13 @@ export function apply(ctx: Context, config: Config) {
       if (!query.map) {
         return `无效区域`
       }
-      await session.send(GensokyoMap.userAreaTextFormat(userData.playName, query))
+      if (config.useMd && Chat.isUseMd(session)) {
+        const mdStr = await GensokyoMap.userAreaTextMdFormat(userData.playName, query)
+        await Chat.send(session, mdStr)
+      } else {
+        const str = await GensokyoMap.userAreaTextFormat(userData.playName, query)
+        await Chat.send(session, str)
+      }
     })
 
   ctx
@@ -186,7 +210,7 @@ export function apply(ctx: Context, config: Config) {
       const userData = await User.getUserAttribute(session)
       if (!userData) return
       GensokyoMap.initUserPoistion(session, userData)
-      return `您的属性如下：\n` + User.userAttributeTextFormat(session.userId)
+      await Chat.send(session, (config.useMd ? `> 您的属性如下：\n\n` : `您的属性如下：\n`) + User.userAttributeTextFormat(session.userId))
     })
 
   ctx
@@ -199,13 +223,26 @@ export function apply(ctx: Context, config: Config) {
     })
 
   ctx
-    .command('个人查询/个人信息').userFields(['id'])
+    .command('个人查询/个人货币').userFields(['id'])
     .action(async ({ session }) => {
       const userData = await User.getUserAttribute(session)
       if (!userData) return
       GensokyoMap.initUserPoistion(session, userData)
       const [data] = await ctx.database.get('monetary', { uid: session.user.id })
       return `[${User.userTempData[session.userId].playName}]：您当前货币为：${data?.value || 0}个`
+    })
+
+  ctx
+    .command('个人查询/他人属性 <username:string>').userFields(['id'])
+    .action(async ({ session }, username) => {
+      if (!username?.trim()) {
+        return `请输入查询玩家的游戏名称。例如 /查询玩家 smm`
+      }
+      const targetUserId = User.getUserIdByPlayName(username.trim())
+      if (!targetUserId) {
+        return `未找到该玩家信息，查询失败！`
+      }
+      await Chat.send(session, User.userAttributeTextFormat(targetUserId))
     })
 
   ctx
@@ -408,8 +445,14 @@ export function apply(ctx: Context, config: Config) {
 
       const team = BattleData.teamListByUser(session.userId)
       if (!team.length) return `你还没有队伍...`
-      return `当前队伍信息如下：\n` +
-        team.map((item) => `lv.${item.lv} ${item.playName} [${BattleData.teamTemp[item.userId].identity}] 【${item.duties}】`).join('\n')
+      if (config.useMd && Chat.isUseMd(session)) {
+        await Chat.send(session, `> 当前队伍信息如下：\n\n` +
+          team.map((item) => `**${BattleData.teamTemp[item.userId].identity}** _lv.${item.lv}_ <qqbot-cmd-input text="/他人属性 ${item.playName}" show="${item.playName}" reference="false" />  (${item.duties})`).join('\n'))
+      } else {
+        return `当前队伍信息如下：\n` +
+          team.map((item) => `lv.${item.lv} ${item.playName} [${BattleData.teamTemp[item.userId].identity}] 【${item.duties}】`).join('\n')
+      }
+
     })
   ctx
     .command('队伍操作/队伍邀请 <playName>')
@@ -504,7 +547,6 @@ export function apply(ctx: Context, config: Config) {
       await session.send(await ctx.puppeteer.render(html))
     })
 
-
   ctx
     .command('幻想乡/打怪逃跑')
     .action(async ({ session }) => {
@@ -538,8 +580,14 @@ export function apply(ctx: Context, config: Config) {
         return '该区域未存在传送门建筑，传送失败！'
       }
       GensokyoMap.jumpFloor(session, floor, async (val) => {
-        await session.send(`传送到${floor}层成功！`)
-        await session.send(GensokyoMap.userAreaTextFormat(val.user.playName, val))
+        await Chat.send(session, `传送到${floor}层成功！`)
+        if (config.useMd) {
+          const md = await GensokyoMap.userAreaTextMdFormat(val.user.playName, val)
+          await Chat.send(session, md)
+        } else {
+          const str = await GensokyoMap.userAreaTextFormat(val.user.playName, val)
+          await Chat.send(session, str)
+        }
       })
     })
 
@@ -591,9 +639,7 @@ export function apply(ctx: Context, config: Config) {
       return `[${goal}]信息如下：\n` + BuffFn[goal].info
     })
 
-  ctx
-    .command('幻想乡/装备系统')
-
+  ctx.command('幻想乡/装备系统')
   ctx
     .command('装备系统/装备列表')
     .action(async ({ session }) => {
@@ -634,12 +680,26 @@ export function apply(ctx: Context, config: Config) {
       GensokyoMap.initUserPoistion(session, userData)
 
       const currentEquipment = UserEquipment.userEquCurrentTemp[session.userId]
+      const getSuit = {}
       const msg = Object.keys(currentEquipment).map((item) => {
         if (!currentEquipment[item]) return `【${EquipmentValue[item]}】 无配置`
         const equipmentItem = currentEquipment[item] as EquipmentDictDatabase
+
+        // 计算套装
+        const suitName = equipmentData[currentEquipment[item].name].suit
+        if (suitName) {
+          if (!getSuit[suitName]) {
+            getSuit[suitName] = 0
+          }
+          getSuit[suitName]++
+        }
         return `【${EquipmentValue[item] || '未知位置'}】 Lv.${equipmentItem.forging}${equipmentItem.name}[${equipmentItem.fid}]`
       }).join('\n')
-      return `${User.getUserName(session.userId)} 当前佩戴装备为:\n\n` + msg
+
+      return `${User.getUserName(session.userId)} 当前佩戴装备为:\n\n` + msg + (Object.keys(getSuit).length ? "\n\n" +
+        Object.keys(getSuit).map(item => {
+          return [2, 4].includes(getSuit[item]) ? `已集齐【${item}】${getSuit[item]}套装` : null
+        }).join('\n') : '')
     })
 
   ctx
@@ -675,4 +735,70 @@ export function apply(ctx: Context, config: Config) {
         await UserEquipment.unloadEquipment(session, item.keyword)
       })
   }
+
+  ctx
+    .command('装备系统/查询套装 <dictName>')
+    .action(async ({ session }, dictName) => {
+      if (!dictName) return `请输入套装名称！例如 /查询套装 新手的勇气`
+      if (!SuitDict[dictName]) return `没有找到该套装信息...`
+      return `【${dictName}】\n` + SuitDict[dictName].info
+    })
+
+  ctx
+    .command('修复被动')
+    .action(async ({ session }) => {
+      const allData = await ctx.database.get('smm_gensokyo_user_skill', {})
+      for (const data of allData) {
+        data.usePassiveSkill = data.usePassiveSkill.filter((i) => i !== '恢复')
+        const userId = data.userId
+        delete data.userId
+        await UserSkill.ctx.database.set('smm_gensokyo_user_skill', { userId }, data)
+      }
+      return '1'
+    })
+
+  ctx
+    .command('幻想乡/银行系统')
+  ctx
+    .command('银行系统/查看存款')
+    .action(async ({ session }) => {
+      const userData = await User.getUserAttribute(session)
+      if (!userData) return
+      GensokyoMap.initUserPoistion(session, userData)
+
+      const areaItem = GensokyoMap.getUserCurrentArea(session.userId)
+      if (areaItem.type == AreaType.银行) {
+        await BankFn.showView(session)
+      } else {
+        await Chat.send(session, '周围没有银行，查看失败...')
+      }
+    })
+  ctx
+    .command('银行系统/存款 <num:posint>')
+    .action(async ({ session }, num) => {
+      const userData = await User.getUserAttribute(session)
+      if (!userData) return
+      GensokyoMap.initUserPoistion(session, userData)
+
+      const areaItem = GensokyoMap.getUserCurrentArea(session.userId)
+      if (areaItem.type == AreaType.银行) {
+        await BankFn.deposit(session, num)
+      } else {
+        await Chat.send(session, '周围没有银行，存款失败...')
+      }
+    })
+  ctx
+    .command('银行系统/取款 <num:posint>')
+    .action(async ({ session }, num) => {
+      const userData = await User.getUserAttribute(session)
+      if (!userData) return
+      GensokyoMap.initUserPoistion(session, userData)
+
+      const areaItem = GensokyoMap.getUserCurrentArea(session.userId)
+      if (areaItem.type == AreaType.银行) {
+        await BankFn.withdraw(session, num)
+      } else {
+        await Chat.send(session, '周围没有银行，取款失败...')
+      }
+    })
 }

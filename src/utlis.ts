@@ -1,3 +1,5 @@
+import { Context } from "koishi";
+
 export const random = (min: number, max: number): number => {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
@@ -27,8 +29,19 @@ export const getFreeList = (arr: any[]): any[] => {
     }
     return arrAdd;
 }
-
-
+/** 将 base64 图片转为 网络图片地址 */
+export const base64ToWebUrl = async (base64: string, ctx: Context) => {
+    try {
+        const res = await ctx.http.post('https://img.smmcat.top/proxy/image/base64', { base64 })
+        if (res.code !== 0) {
+            return null
+        }
+        return res.localUrl
+    } catch (error) {
+        console.log(error);
+        return null
+    }
+}
 export class AsyncOperationQueue {
     queue: any[]
     running: boolean

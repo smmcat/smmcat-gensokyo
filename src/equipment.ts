@@ -302,6 +302,8 @@ export const UserEquipment = {
     setBattleDataUpByEquipmentAttr(anget: UserBaseAttribute) {
         if (!anget.userId) return
         const currentEquipment = UserEquipment.userEquCurrentTemp[anget.userId]
+        // 新注册账号
+        if (!currentEquipment) return
         const suitMap = {}
         const upVal = {} as SecAttrDict
         // 计算装备总增益值
@@ -330,6 +332,7 @@ export const UserEquipment = {
     },
     /** 战斗添加属性 */
     putBattleDataTo(upVal: SecAttrDict, anget: BattleAttribute) {
+        if (!upVal) return
         Object.keys(upVal).forEach((item) => {
             // 已经直接赋值，无需额外结算
             if (['maxHp', 'maxMp'].includes(item)) return
@@ -340,6 +343,7 @@ export const UserEquipment = {
         })
         // 判断套装并增加效果
         Object.keys(anget.suitMap).forEach((item) => {
+            if (!SuitDict[item]) return
             if (anget.suitMap[item] >= 2) {
                 SuitDict[item].twoPiece(anget)
             }
@@ -412,7 +416,7 @@ export const UserEquipment = {
         const selectEquipment = myCurrentEquData[where]
 
         if (!selectEquipment) {
-            await session.send(`您并没有佩戴任何${EquipmentAttrStringDict[selectEquipment.type]?.name}类型的装备。`)
+            await session.send(`您并没有佩戴任何${EquipmentValue[where]}类型的装备。`)
             return
         }
         selectEquipment.isUse = false
@@ -444,10 +448,10 @@ export const UserEquipment = {
         }) as keyof UserEquipmentItem
         const msgs = []
         if (selectEquipment) {
-            UserEquipment.unloadEquipment(session, selectEquipment)
             await session.send(`检测到您需要销毁的${myCurrentEquData[selectEquipment].name}[${myCurrentEquData[selectEquipment].fid}]已佩戴，是否卸下并删除？（30s回复 是）`)
             const result = await session.prompt(30000)
             if (result == undefined || result !== '是') return
+            await UserEquipment.unloadEquipment(session, selectEquipment)
             msgs.push(`已卸下${EquipmentAttrStringDict[selectEquipment]?.name}部位的装备。`)
         }
         // 执行删除策略

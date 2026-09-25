@@ -246,12 +246,45 @@ export const propsData: propsTemplateData = {
         }
     },
     "新手装备礼盒": {
-        name: "新手的勇气礼盒",
+        name: "新手装备礼盒",
         type: PropType.礼包类,
         info: '通过该道具可在 "新手头盔、新手披风、新手之剑、新手鞋子、新手项链" 以下装备中随机获得一件。',
         price: 20,
         fn: async function (session) {
             const equipmentList = ["新手头盔", "新手披风", "新手之剑", "新手鞋子", "新手项链"]
+            const equipment = await UserEquipment.getEquipment(session.userId, { name: equipmentList[Math.floor(equipmentList.length * Math.random())] })
+            await session.send(`恭喜获得：${equipment.name}[${equipment.fid}]`)
+        }
+    },
+    "雾城装备礼盒": {
+        name: "雾城装备礼盒",
+        type: PropType.礼包类,
+        info: '通过该道具可在 "雾巡长刃、雾巡头盔、雾巡护甲、雾巡短靴、雾巡腰裤" 以下装备中随机获得一件。',
+        price: 120,
+        fn: async function (session) {
+            const equipmentList = ["雾巡长刃", "雾巡头盔", "雾巡护甲", "雾巡短靴", "雾巡腰裤"]
+            const equipment = await UserEquipment.getEquipment(session.userId, { name: equipmentList[Math.floor(equipmentList.length * Math.random())] })
+            await session.send(`恭喜获得：${equipment.name}[${equipment.fid}]`)
+        }
+    },
+    "月潮装备礼盒": {
+        name: "月潮装备礼盒",
+        type: PropType.礼包类,
+        info: '通过该道具可在 "潮汐法杖、潮汐项链、潮汐披风、潮汐护甲、潮汐长靴" 以下装备中随机获得一件。',
+        price: 260,
+        fn: async function (session) {
+            const equipmentList = ["潮汐法杖", "潮汐项链", "潮汐披风", "潮汐护甲", "潮汐长靴"]
+            const equipment = await UserEquipment.getEquipment(session.userId, { name: equipmentList[Math.floor(equipmentList.length * Math.random())] })
+            await session.send(`恭喜获得：${equipment.name}[${equipment.fid}]`)
+        }
+    },
+    "星砂装备礼盒": {
+        name: "星砂装备礼盒",
+        type: PropType.礼包类,
+        info: '通过该道具可在 "星砂刃、星砂冠、星砂甲、星砂坠、星砂披风" 以下装备中随机获得一件。',
+        price: 520,
+        fn: async function (session) {
+            const equipmentList = ["星砂刃", "星砂冠", "星砂甲", "星砂坠", "星砂披风"]
             const equipment = await UserEquipment.getEquipment(session.userId, { name: equipmentList[Math.floor(equipmentList.length * Math.random())] })
             await session.send(`恭喜获得：${equipment.name}[${equipment.fid}]`)
         }

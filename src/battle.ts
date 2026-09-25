@@ -88,6 +88,8 @@ export type BattleAttribute = {
     fn?: { name: string, prob: number }[],
     /** 被动技能 */
     passiveList?: string[],
+    /** 套装被动 */
+    equipmentPassiveList?: string[]
     /** 套装信息 */
     suitMap: { [keys: string]: number },
     /** 拓展数据 */
@@ -545,6 +547,8 @@ export const BattleData = {
         const msgList = []
 
         for (const agent of allAgentList) {
+            console.log(agent);
+
 
             // 状态结算
             const buffMsg = settlementBuff(agent)
@@ -620,7 +624,7 @@ export const BattleData = {
                 } else {
                     const fliteMyList = allAgentList.filter((item) => item.id !== agent.id && item.hp > 0)
                     if (!fliteMyList.length) continue;
-                    selectGoal = fliteMyList[Math.random() * fliteMyList.length]
+                    selectGoal = fliteMyList[Math.floor(Math.random() * fliteMyList.length)]
                 }
 
                 // 普通攻击
@@ -842,6 +846,7 @@ export function getLineupName(agent: BattleAttribute) {
 
 export function getSkillFn(fnList: { name: string; prob: number }[]): string {
     const totalProb = fnList.reduce((sum, item) => sum + item.prob, 0);
+    if (totalProb <= 0) return fnList[0]?.name || '普攻'
     const random = Math.random() * totalProb;
     let currentProb = 0;
     for (const item of fnList) {
@@ -901,7 +906,8 @@ function initBattleAttribute(data: UserBaseAttribute | MonsterBaseAttribute): Ba
             },
             buff: {},
             fn: userData.fn,
-            passiveList: userData.passiveList,
+            passiveList: [],
+            equipmentPassiveList: [],
             suitMap: userData.suitMap,
             expand: {}
         } as BattleAttribute
@@ -950,6 +956,7 @@ function initBattleAttribute(data: UserBaseAttribute | MonsterBaseAttribute): Ba
             },
             buff: {},
             passiveList: monsterData.passiveList || [],
+            equipmentPassiveList: [],
             fn: monsterData.fn ? JSON.parse(JSON.stringify(monsterData.fn)).filter((item: { name: string, prob: number }) => {
                 return skillFn[item.name] && monsterData.lv >= skillFn[item.name].lv
             }) : [],

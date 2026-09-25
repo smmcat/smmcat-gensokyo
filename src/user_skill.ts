@@ -62,6 +62,9 @@ export const UserSkill = {
     getUserSkillData(userId: string) {
         UserSkill.initUserSkill(userId)
         const userSkillData = UserSkill.userSkillTemp[userId]
+        // 参数矫正
+        userSkillData.passiveSkill = [...new Set(userSkillData.passiveSkill)]
+        userSkillData.usePassiveSkill = [...new Set(userSkillData.usePassiveSkill)]
         const currentActiveSkill = Object.values(userSkillData.fast_activeSkill).filter((i) => i).map((item) => {
             return { name: item, prob: skillFn[item].useTime }
         })
@@ -138,7 +141,13 @@ export const UserSkill = {
     /** 技能数据存储到本地 */
     async setLocalUserData(userId: string) {
         const temp = UserSkill.userSkillTemp[userId]
-        await UserSkill.ctx.database.set('smm_gensokyo_user_skill', { userId }, temp)
+        const data = {
+            fast_activeSkill: temp.fast_activeSkill,
+            usePassiveSkill: [...new Set(temp.usePassiveSkill)],
+            passiveSkill: [...new Set(temp.passiveSkill)],
+            activeSkill: temp.activeSkill
+        } as UserDatabaseSkill
+        await UserSkill.ctx.database.set('smm_gensokyo_user_skill', { userId }, data)
     },
     /** 添加技能书 */
     async addSkill(userId: string, skill: { name: string, type: '主动' | '被动' }) {

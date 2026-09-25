@@ -188,6 +188,20 @@ export const BuffFn: BuffFnList = {
             })
         }
     },
+    "福音": {
+        name: "福音",
+        type: BuffType.增益,
+        info: "提升 30% 暴击率",
+        fn: function (agent: BattleAttribute, fn?) {
+            const val = Math.floor(agent.chr * 0.3);
+            fn && fn({
+                type: BuffType.增益,
+                up: {
+                    chr: val
+                }
+            })
+        }
+    },
     "咒": {
         name: "咒",
         type: BuffType.印记,

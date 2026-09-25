@@ -63,6 +63,8 @@ export type UserBaseAttribute = {
     fn?: { name: string, prob: number }[],
     /** 被动技能 */
     passiveList?: string[],
+    /** 装备被动技能 */
+    equipmentPassiveList?: string[]
     /** 装备加成 */
     equipmentUpInfo?: SecAttrDict,
     /** 装备套装属性 */
@@ -174,11 +176,14 @@ export const UserOccDict: Record<UserOccupation, { info: string, initStatus: Use
 export const User = {
     config: {} as Config,
     ctx: {} as Context,
+    botId: "",
     userTempData: {} as UserTempData,
     userNameTemp: {} as { [keys: string]: string },
     async init(config: Config, ctx: Context) {
         User.config = config;
         User.ctx = ctx;
+        User.botId = config.botId
+
         // 创建数据库表结构
         ctx.model.extend(
             'smm_gensokyo_user_attribute',
@@ -222,6 +227,14 @@ export const User = {
             return null
         }
         return User.getUserAddLvAttribute(session.userId)
+    },
+    /** 获取其他玩家角色基础属性 */
+    getOtherUserAttribute(playName: string) {
+        const targetUserId = User.getUserIdByPlayName(playName?.trim())
+        if (!targetUserId) {
+            return null
+        }
+        return User.getUserAddLvAttribute(targetUserId)
     },
     /** 获取角色实际等级属性数据 */
     getUserAddLvAttribute(userId: string) {
@@ -382,30 +395,49 @@ export const User = {
         User.userNameTemp[temp.playName] = temp.userId
         await Props.initUserPropsData(session.userId) // 道具信息写入
         await UserSkill.initUserSkill(session.userId) // 技能信息写入
-        await session.send('创建成功！\n' + User.userAttributeTextFormat(session.userId))
+        await session.send('创建成功！\n' + User.userAttributeTextFormat(session.userId, true))
     },
     /** 信息格式化 */
-    userAttributeTextFormat(userId: string) {
+    userAttributeTextFormat(userId: string, notMd = false) {
         if (!User.userTempData[userId]) {
             return '没有找到您的角色信息'
         }
         const temp = User.getUserAttributeByUserId(userId) as UserBaseAttribute
-        return `昵称：${temp.playName}\n` +
-            `职位：${temp.type}\n` +
-            `等级：${temp.lv} (${temp.exp}/${temp.maxExp})\n` +
-            `-----------------\n` +
-            `【生命值】${temp.hp}/${temp.maxHp - (temp.equipmentUpInfo.maxHp || 0)} (+${temp.equipmentUpInfo.maxHp || 0})\n` +
-            `【魔法值】${temp.mp}/${temp.maxMp - (temp.equipmentUpInfo.maxMp || 0)} (+${temp.equipmentUpInfo.maxMp || 0})\n` +
-            `【活力值】${temp.pp}/${temp.maxPp}\n` +
-            `-----------------\n` +
-            `【攻击力】${temp.atk} (+${temp.equipmentUpInfo.atk || 0})\n` +
-            `【防御力】${temp.def} (+${temp.equipmentUpInfo.def || 0})\n` +
-            `【速度值】${temp.speed} (+${temp.equipmentUpInfo.speed || 0})\n` +
-            `【闪避值】${temp.evasion} (+${temp.equipmentUpInfo.evasion || 0})\n` +
-            `【命中率】${((100 + (temp.hit - 1000) / 10)).toFixed(1)}% (+${temp.equipmentUpInfo.hit && Math.floor(temp.equipmentUpInfo.hit / ((100 + (temp.hit - 1000) / 10))) || 0}%)\n` +
-            `【暴击率】${(temp.chr / 10).toFixed(1)}% (+${temp.equipmentUpInfo.chr || 0}%)\n` +
-            `【暴击伤害】${(temp.ghd * 100).toFixed(1)}% (+${temp.equipmentUpInfo.ghd && (temp.equipmentUpInfo.ghd * 100).toFixed() || 0}%)` +
-            ((temp.csr + temp.equipmentUpInfo.csr) > 0 ? `\n【暴击抵抗】${temp.csr}` : '')
+        if (User.config.useMd && !notMd) {
+            return `![pic #50px #50px](http://q.qlogo.cn/qqapp/${User.botId}}/${userId}/640)\n` +
+                `昵称：${temp.playName}\n` +
+                `职位：${temp.type}\n` +
+                `等级：${temp.lv} (${temp.exp}/${temp.maxExp})\n` +
+                `***\n` +
+                `**生命值** ${temp.hp}/${temp.maxHp - (temp.equipmentUpInfo.maxHp || 0)} _(+${temp.equipmentUpInfo.maxHp || 0})_\n` +
+                `**魔法值** ${temp.mp}/${temp.maxMp - (temp.equipmentUpInfo.maxMp || 0)} _(+${temp.equipmentUpInfo.maxMp || 0})_\n` +
+                `**活力值** ${temp.pp}/${temp.maxPp}\n` +
+                `**攻击力** ${temp.atk} _(+${temp.equipmentUpInfo.atk || 0})_\n` +
+                `**防御力** ${temp.def} _(+${temp.equipmentUpInfo.def || 0})_\n` +
+                `**速度值** ${temp.speed} _(+${temp.equipmentUpInfo.speed || 0})_\n` +
+                `**闪避值** ${temp.evasion} _(+${temp.equipmentUpInfo.evasion || 0})_\n` +
+                `**命中率** ${((100 + (temp.hit - 1000) / 10)).toFixed(1)}% _(+${temp.equipmentUpInfo.hit && Math.floor(temp.equipmentUpInfo.hit / ((100 + (temp.hit - 1000) / 10))) || 0}%)_\n` +
+                `**暴击率** ${(temp.chr / 10).toFixed(1)}% _(+${temp.equipmentUpInfo.chr || 0}%)_\n` +
+                `**暴击伤害** ${(temp.ghd * 100).toFixed(1)}% _(+${temp.equipmentUpInfo.ghd && (temp.equipmentUpInfo.ghd * 100).toFixed() || 0}%)_` +
+                ((temp.csr + temp.equipmentUpInfo.csr) > 0 ? `\n**暴击抵抗** ${temp.csr + temp.equipmentUpInfo.csr}` : '')
+        } else {
+            return `昵称：${temp.playName}\n` +
+                `职位：${temp.type}\n` +
+                `等级：${temp.lv} (${temp.exp}/${temp.maxExp})\n` +
+                `-----------------\n` +
+                `【生命值】${temp.hp}/${temp.maxHp - (temp.equipmentUpInfo.maxHp || 0)} (+${temp.equipmentUpInfo.maxHp || 0})\n` +
+                `【魔法值】${temp.mp}/${temp.maxMp - (temp.equipmentUpInfo.maxMp || 0)} (+${temp.equipmentUpInfo.maxMp || 0})\n` +
+                `【活力值】${temp.pp}/${temp.maxPp}\n` +
+                `-----------------\n` +
+                `【攻击力】${temp.atk} (+${temp.equipmentUpInfo.atk || 0})\n` +
+                `【防御力】${temp.def} (+${temp.equipmentUpInfo.def || 0})\n` +
+                `【速度值】${temp.speed} (+${temp.equipmentUpInfo.speed || 0})\n` +
+                `【闪避值】${temp.evasion} (+${temp.equipmentUpInfo.evasion || 0})\n` +
+                `【命中率】${((100 + (temp.hit - 1000) / 10)).toFixed(1)}% (+${temp.equipmentUpInfo.hit && Math.floor(temp.equipmentUpInfo.hit / ((100 + (temp.hit - 1000) / 10))) || 0}%)\n` +
+                `【暴击率】${(temp.chr / 10).toFixed(1)}% (+${temp.equipmentUpInfo.chr || 0}%)\n` +
+                `【暴击伤害】${(temp.ghd * 100).toFixed(1)}% (+${temp.equipmentUpInfo.ghd && (temp.equipmentUpInfo.ghd * 100).toFixed() || 0}%)` +
+                ((temp.csr + temp.equipmentUpInfo.csr) > 0 ? `\n【暴击抵抗】${temp.csr}` : '')
+        }
     },
     /** 写入用户数据到数据库 */
     async setDatabaseUserAttribute(userId: string) {

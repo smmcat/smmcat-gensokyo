@@ -5,21 +5,29 @@ import { random } from "./utlis";
 
 
 type DamageCallback = {
+    /** 初始化信息阶段前 */
     before?: Callback;
+    /** 是否真实伤害判断前 */
     beforRealHarm?: Callback;
+    /** 闪避结果事件后 */
     evasion?: Callback;
+    /** 暴击结果事件后 */
     csp?: Callback;
+    /** 防御抵扣伤害前 */
     beforDef?: Callback;
+    /** 最终结算伤害前（被动触发前） */
     beforEnd?: Callback
 }
+
 /** 当前伤害回调函数 */
 interface Callback {
     (data: DamageConfig): void;
 }
 
 export type DamageConfig = {
-    agent: { self: BattleAttribute, goal: BattleAttribute }
     /** 浅拷贝数据 */
+    agent: { self: BattleAttribute, goal: BattleAttribute }
+    /** 深拷贝数据 */
     linkAgent: { self: BattleAttribute, goal: BattleAttribute }
     /** 实际伤害数据 */
     harm: number
@@ -138,8 +146,9 @@ class Damage {
         }
         fn && fn(this.config)
         // 是否存在攻击类型被动技能
-        if (!this.config.isRealHarm && this.config.linkAgent.self.passiveList?.length) {
-            this.config.linkAgent.self.passiveList.forEach((passiveName) => {
+        const allPassiveList = [...this.config.linkAgent.self.equipmentPassiveList, ...this.config.linkAgent.self.passiveList]
+        if (!this.config.isRealHarm && allPassiveList.length) {
+            allPassiveList.forEach((passiveName) => {
                 if (PassiveFn[passiveName].type == 'atk') {
                     const msg = PassiveFn[passiveName].damageFn(this.config)
                     msg && this.config.passiveMsg.push(msg)
@@ -195,8 +204,9 @@ class BuffDamage {
 /** 给予目标伤害 */
 function giveDamage(self: BattleAttribute, goal: BattleAttribute, damage: DamageConfig) {
     // 是否存在防御类被动技能
-    if (!damage.isRealHarm && damage.linkAgent.goal.passiveList?.length) {
-        damage.linkAgent.goal.passiveList.forEach((passiveName) => {
+    const allPressiveList = [...damage.linkAgent.goal.equipmentPassiveList, ...damage.linkAgent.goal.passiveList]
+    if (!damage.isRealHarm && allPressiveList.length) {
+        allPressiveList.forEach((passiveName) => {
             if (PassiveFn[passiveName].type == 'hit') {
                 const msg = PassiveFn[passiveName].damageFn(damage)
                 msg && damage.passiveMsg.push(msg)
@@ -247,6 +257,6 @@ function moreDamageInfo(damage: DamageConfig) {
 
 /** 更多的伤害提示信息 */
 function baseMoreDamage(damageInfo: DamageConfig) {
-    return moreDamageInfo(damageInfo) + (damageInfo.passiveMsg.length ? '\n' + damageInfo.passiveMsg.join('‣') : '')
+    return moreDamageInfo(damageInfo) + (damageInfo.passiveMsg.length ? '\n' + damageInfo.passiveMsg.join('\n') : '')
 }
 export { Damage, BuffDamage, giveDamage, giveCure, moreDamageInfo, baseMoreDamage }

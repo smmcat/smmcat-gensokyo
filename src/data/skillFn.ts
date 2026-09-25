@@ -1,5 +1,5 @@
 import { BattleAttribute, getLineupName } from "../battle";
-import { baseMoreDamage, Damage, DamageConfig } from "../damage";
+import { baseMoreDamage, BuffDamage, Damage, DamageConfig, giveDamage } from "../damage";
 import { User } from "../users";
 import { getFreeList, random } from "../utlis";
 import { BuffFn, BuffType, clearBuff, clearImprint, giveBuff } from "./buffFn";
@@ -220,7 +220,7 @@ export const skillFn: SkillFn = {
         fn: function (agent, agentList, fn?) {
             const selectGoal = agent.goal
             const cureVal = Math.floor(40 + 40 * (agent.goal.TreatmentUp + agent.goal.gain.TreatmentUp))
-            
+
             if (agent.goal.hp <= 0) {
                 return `${getLineupName(agent.self)}已阵亡，无法恢复...`
             }
@@ -522,7 +522,7 @@ export const skillFn: SkillFn = {
         mp: 120,
         useTime: 4,
         fn: function (agent, agentList, fn?) {
-            if (agent.goal.type == '怪物' && agent.self.expand['frost-buff']?.val <= 4) {
+            if (agent.goal.type == '怪物' && agent.self.expand['frost-buff']?.val <= 2) {
                 fn({
                     type: SkillType.释放失败,
                     isNext: true,
@@ -600,14 +600,14 @@ export const skillFn: SkillFn = {
     "跟你爆了": {
         name: "跟你爆了",
         type: SkillType.伤害技,
-        info: '"事到如今，只能自爆了。"\n牺牲自己，直接对目标造成目前 自身生命值*1.5 的真实伤害。',
+        info: '"事到如今，只能自爆了。"\n牺牲自己，直接对目标造成目前 自身当前生命值*1.3 的真实伤害。',
         lv: 10,
-        mp: 60,
+        mp: 10,
         useTime: 1,
         fn: function (agent, agentList, fn?) {
             const damageData = new Damage({ self: agent.self, goal: agent.goal }, true).result({
                 before: ((val) => {
-                    val.default_harm = Math.floor(agent.self.hp * 1.5)
+                    val.default_harm = Math.floor(agent.self.hp * 1.3)
                 })
             })
             agent.self.hp = 0
@@ -621,6 +621,346 @@ export const skillFn: SkillFn = {
 
             return `${getLineupName(agent.self)} 发动跟你爆了！对 ${getLineupName(agent.goal)} 造成 ${damageData.harm} 伤害。` +
                 baseMoreDamage(damageData)
+        }
+    },
+    "夏弥尔之星": {
+        name: "夏弥尔之星",
+        type: SkillType.伤害技,
+        info: "先为自己附加 ⌈福音⌋ 提升自身 30% 暴击率，持续5回合。之后对敌方单个目标造成 1.5 倍伤害。",
+        lv: 10,
+        mp: 70,
+        useTime: 3,
+        fn: function (agent, agentList, fn?) {
+            giveBuff(agent.self, { name: "福音", timer: 5 })
+            const damageData = new Damage({ self: agent.self, goal: agent.goal }).result({
+                before: ((val) => {
+                    val.default_harm = Math.floor(val.default_harm * 1.5)
+                })
+            })
+            fn({
+                type: SkillType.伤害技,
+                damage: damageData,
+                isNext: false,
+                target: [agent.goal]
+            })
+
+            return `${getLineupName(agent.self)} 强化自己，并发动夏弥尔之星！对 ${getLineupName(agent.goal)} 造成 ${damageData.harm} 伤害。` +
+                baseMoreDamage(damageData)
+        }
+    },
+    "往日深渊的圆舞曲": {
+        name: "往日深渊的圆舞曲",
+        type: SkillType.伤害技,
+        info: "扣除自身 5% 最大生命。对敌方全体造成 1.8 倍的伤害（最多4个），命中有 20% 概率对目标挂上 3 回合 ⌈引燃⌋。",
+        lv: 10,
+        mp: 70,
+        useTime: 3,
+        fn: function (agent, agentList, fn?) {
+            const costHp = Math.floor(agent.self.maxHp * 0.5)
+            if (agent.self.hp <= costHp) {
+                fn({
+                    type: SkillType.释放失败,
+                    isNext: true,
+                    err: '血量不够技能消耗！'
+                })
+                return
+            }
+            agent.self.hp -= costHp
+            const msgList = [`扣除自身${costHp}血量，${getLineupName(agent.self)} 释放 往日深渊的圆舞曲！`]
+            agentList.goalList.forEach((goal) => {
+                let isBuff = ''
+                const damageData = new Damage({ self: agent.self, goal: agent.goal }).result({
+                    before: ((val) => {
+                        val.default_harm = Math.floor(val.default_harm * 1.5)
+                    })
+                })
+                if (damageData.harm && random(0, 10) <= 2) {
+                    isBuff = giveBuff(goal, { name: "引燃", timer: 3 })
+                }
+                fn({
+                    type: SkillType.伤害技,
+                    damage: damageData,
+                    isNext: false,
+                    target: [goal]
+                })
+                msgList.push(`对 ${getLineupName(goal)} 造成 ${damageData.harm} 伤害。` + baseMoreDamage(damageData) + isBuff)
+            })
+            agent
+            return msgList.join('\n')
+        }
+    },
+    "雾灯刺击": {
+        name: "雾灯刺击",
+        type: SkillType.伤害技,
+        info: '[怪物特有技能]造成 1.25 倍攻击伤害，并追加自身闪避值 12% 的伤害。',
+        lv: 1,
+        mp: 35,
+        useTime: 4,
+        fn: function (agent, agentList, fn?) {
+            const damageData = new Damage(agent).result({
+                before: ((val) => {
+                    val.default_harm = Math.floor(val.default_harm * 1.25) +
+                        Math.floor((val.agent.self.evasion + val.agent.self.gain.evasion) * 0.12)
+                })
+            })
+            fn({ damage: damageData, type: this.type, target: [agent.goal], isNext: false })
+            return `${getLineupName(agent.self)}点亮雾灯发动刺击，对 ${getLineupName(agent.goal)} 造成 ${damageData.harm} 伤害。` + baseMoreDamage(damageData)
+        }
+    },
+    "齿轮重碾": {
+        name: "齿轮重碾",
+        type: SkillType.伤害技,
+        info: '[怪物特有技能]造成 1.35 倍攻击伤害，并追加自身防御值 80% 的伤害。',
+        lv: 1,
+        mp: 30,
+        useTime: 4,
+        fn: function (agent, agentList, fn?) {
+            const damageData = new Damage(agent).result({
+                before: ((val) => {
+                    val.default_harm = Math.floor(val.default_harm * 1.35) +
+                        Math.floor((val.agent.self.def + val.agent.self.gain.def) * 0.8)
+                })
+            })
+            fn({ damage: damageData, type: this.type, target: [agent.goal], isNext: false })
+            return `${getLineupName(agent.self)}以齿轮重碾 ${getLineupName(agent.goal)}，造成 ${damageData.harm} 伤害。` + baseMoreDamage(damageData)
+        }
+    },
+    "墓钟回响": {
+        name: "墓钟回响",
+        type: SkillType.减益技,
+        info: '[怪物特有技能]对目标附加 2 回合破绽，并有 50% 概率附加 2 回合沉默。',
+        lv: 1,
+        mp: 45,
+        useTime: 4,
+        fn: function (agent, agentList, fn?) {
+            giveBuff(agent.goal, { name: "破绽", timer: 2 })
+            const silence = random(0, 10) < 5
+            if (silence) giveBuff(agent.goal, { name: "沉默", timer: 2 })
+            fn({ type: SkillType.减益技, isNext: false })
+            return `${getLineupName(agent.self)}敲响墓钟，${getLineupName(agent.goal)}陷入破绽${silence ? '并被沉默' : ''}。`
+        }
+    },
+    "雨巷急袭": {
+        name: "雨巷急袭",
+        type: SkillType.伤害技,
+        info: '[怪物特有技能]造成 1.2 倍攻击伤害，并追加自身速度 120% 的伤害。',
+        lv: 1,
+        mp: 40,
+        useTime: 4,
+        fn: function (agent, agentList, fn?) {
+            const damageData = new Damage(agent).result({
+                before: ((val) => {
+                    val.default_harm = Math.floor(val.default_harm * 1.2) +
+                        Math.floor((val.agent.self.speed + val.agent.self.gain.speed) * 1.2)
+                })
+            })
+            fn({ damage: damageData, type: this.type, target: [agent.goal], isNext: false })
+            return `${getLineupName(agent.self)}从雨巷中急袭 ${getLineupName(agent.goal)}，造成 ${damageData.harm} 伤害。` + baseMoreDamage(damageData)
+        }
+    },
+    "雾钟审判": {
+        name: "雾钟审判",
+        type: SkillType.伤害技,
+        info: '[怪物特有技能]对最多 3 个目标造成攻击力 1.45 倍伤害，追加自身命中值 8% 的伤害，30% 概率晕眩。',
+        lv: 1,
+        mp: 80,
+        useTime: 3,
+        fn: function (agent, agentList, fn?) {
+            const goalList = getFreeList(agentList.goalList).slice(0, 3).filter(i => i) as BattleAttribute[]
+            const msgList = [`${getLineupName(agent.self)}发动雾钟审判！`]
+            goalList.forEach((goal) => {
+                let useBuff = false
+                const damageData = new Damage({ self: agent.self, goal }).result({
+                    before: ((val) => {
+                        val.default_harm = Math.floor(val.default_harm * 1.45) +
+                            Math.floor((val.agent.self.hit + val.agent.self.gain.hit) * 0.08)
+                    }),
+                    beforEnd: ((val) => {
+                        if (val.harm && random(0, 10) < 3) {
+                            useBuff = true
+                            giveBuff(goal, { name: "晕眩", timer: 2 })
+                        }
+                    })
+                })
+                fn({ type: SkillType.伤害技, damage: damageData, isNext: false, target: [goal] })
+                msgList.push(`- 对 ${getLineupName(goal)} 造成 ${damageData.harm} 伤害。${useBuff ? '(晕眩)' : ''}` + baseMoreDamage(damageData))
+            })
+            return msgList.join('\n')
+        }
+    },
+    "月湾涌流": {
+        name: "月湾涌流",
+        type: SkillType.伤害技,
+        info: '[怪物特有技能]造成 1.25 倍攻击伤害，并追加当前 MP 12% 的伤害。',
+        lv: 1,
+        mp: 45,
+        useTime: 4,
+        fn: function (agent, agentList, fn?) {
+            const damageData = new Damage(agent).result({
+                before: ((val) => {
+                    val.default_harm = Math.floor(val.default_harm * 1.25) + Math.floor(val.agent.self.mp * 0.12)
+                })
+            })
+            fn({ damage: damageData, type: this.type, target: [agent.goal], isNext: false })
+            return `${getLineupName(agent.self)}掀起月湾涌流，对 ${getLineupName(agent.goal)} 造成 ${damageData.harm} 伤害。` + baseMoreDamage(damageData)
+        }
+    },
+    "潮歌魅影": {
+        name: "潮歌魅影",
+        type: SkillType.伤害技,
+        info: '[怪物特有技能]造成 1.2 倍攻击伤害，追加自身暴击率 30% 的伤害，50% 概率沉默。',
+        lv: 1,
+        mp: 55,
+        useTime: 4,
+        fn: function (agent, agentList, fn?) {
+            let useBuff = false
+            const damageData = new Damage(agent).result({
+                before: ((val) => {
+                    val.default_harm = Math.floor(val.default_harm * 1.2) +
+                        Math.floor((val.agent.self.chr + val.agent.self.gain.chr) * 0.3)
+                }),
+                beforEnd: ((val) => {
+                    if (val.harm && random(0, 10) < 5) {
+                        useBuff = true
+                        giveBuff(agent.goal, { name: "沉默", timer: 2 })
+                    }
+                })
+            })
+            fn({ damage: damageData, type: this.type, target: [agent.goal], isNext: false })
+            return `${getLineupName(agent.self)}唱出潮歌魅影，对 ${getLineupName(agent.goal)} 造成 ${damageData.harm} 伤害。${useBuff ? '(沉默)' : ''}` + baseMoreDamage(damageData)
+        }
+    },
+    "锈潮斩": {
+        name: "锈潮斩",
+        type: SkillType.伤害技,
+        info: '[怪物特有技能]造成 1.4 倍攻击伤害，并临时无视目标 25% 防御。',
+        lv: 1,
+        mp: 45,
+        useTime: 4,
+        fn: function (agent, agentList, fn?) {
+            const damageData = new Damage(agent).result({
+                before: ((val) => {
+                    val.default_harm = Math.floor(val.default_harm * 1.4)
+                    val.agent.goal.def -= Math.floor((val.agent.goal.def + val.agent.goal.gain.def) * 0.25)
+                })
+            })
+            fn({ damage: damageData, type: this.type, target: [agent.goal], isNext: false })
+            return `${getLineupName(agent.self)}挥出锈潮斩，对 ${getLineupName(agent.goal)} 造成 ${damageData.harm} 伤害。` + baseMoreDamage(damageData)
+        }
+    },
+    "月蚀潮汐": {
+        name: "月蚀潮汐",
+        type: SkillType.伤害技,
+        info: '[怪物特有技能]对最多 4 个目标造成攻击力 1.35 倍伤害，追加当前 MP 10% 的伤害，命中后附加引燃。',
+        lv: 1,
+        mp: 100,
+        useTime: 3,
+        fn: function (agent, agentList, fn?) {
+            const goalList = getFreeList(agentList.goalList).slice(0, 4).filter(i => i) as BattleAttribute[]
+            const msgList = [`${getLineupName(agent.self)}引来月蚀潮汐！`]
+            goalList.forEach((goal) => {
+                let useBuff = false
+                const damageData = new Damage({ self: agent.self, goal }).result({
+                    before: ((val) => {
+                        val.default_harm = Math.floor(val.default_harm * 1.35) + Math.floor(val.agent.self.mp * 0.1)
+                    }),
+                    beforEnd: ((val) => {
+                        if (val.harm) {
+                            useBuff = true
+                            giveBuff(goal, { name: "引燃", timer: 3 })
+                        }
+                    })
+                })
+                fn({ type: SkillType.伤害技, damage: damageData, isNext: false, target: [goal] })
+                msgList.push(`- 对 ${getLineupName(goal)} 造成 ${damageData.harm} 伤害。${useBuff ? '(引燃)' : ''}` + baseMoreDamage(damageData))
+            })
+            return msgList.join('\n')
+        }
+    },
+    "星砂闪击": {
+        name: "星砂闪击",
+        type: SkillType.伤害技,
+        info: '[怪物特有技能]造成 1.2 倍攻击伤害，并追加自身闪避值 12% 与速度 100% 的伤害。',
+        lv: 1,
+        mp: 60,
+        useTime: 4,
+        fn: function (agent, agentList, fn?) {
+            const damageData = new Damage(agent).result({
+                before: ((val) => {
+                    val.default_harm = Math.floor(val.default_harm * 1.2) +
+                        Math.floor((val.agent.self.evasion + val.agent.self.gain.evasion) * 0.12) +
+                        Math.floor(val.agent.self.speed + val.agent.self.gain.speed)
+                })
+            })
+            fn({ damage: damageData, type: this.type, target: [agent.goal], isNext: false })
+            return `${getLineupName(agent.self)}化作星砂闪击 ${getLineupName(agent.goal)}，造成 ${damageData.harm} 伤害。` + baseMoreDamage(damageData)
+        }
+    },
+    "陨铁坠击": {
+        name: "陨铁坠击",
+        type: SkillType.伤害技,
+        info: '[怪物特有技能]造成 1.5 倍攻击伤害，并追加自身防御值 100% 的伤害。',
+        lv: 1,
+        mp: 55,
+        useTime: 4,
+        fn: function (agent, agentList, fn?) {
+            const damageData = new Damage(agent).result({
+                before: ((val) => {
+                    val.default_harm = Math.floor(val.default_harm * 1.5) +
+                        Math.floor(val.agent.self.def + val.agent.self.gain.def)
+                })
+            })
+            fn({ damage: damageData, type: this.type, target: [agent.goal], isNext: false })
+            return `${getLineupName(agent.self)}砸下陨铁坠击，对 ${getLineupName(agent.goal)} 造成 ${damageData.harm} 伤害。` + baseMoreDamage(damageData)
+        }
+    },
+    "星核灼光": {
+        name: "星核灼光",
+        type: SkillType.伤害技,
+        info: '[怪物特有技能]造成 1.3 倍攻击伤害，追加自身命中值 10% 的伤害，并有 40% 概率引燃。',
+        lv: 1,
+        mp: 75,
+        useTime: 4,
+        fn: function (agent, agentList, fn?) {
+            let useBuff = false
+            const damageData = new Damage(agent).result({
+                before: ((val) => {
+                    val.default_harm = Math.floor(val.default_harm * 1.3) +
+                        Math.floor((val.agent.self.hit + val.agent.self.gain.hit) * 0.1)
+                }),
+                beforEnd: ((val) => {
+                    if (val.harm && random(0, 10) < 4) {
+                        useBuff = true
+                        giveBuff(agent.goal, { name: "引燃", timer: 3 })
+                    }
+                })
+            })
+            fn({ damage: damageData, type: this.type, target: [agent.goal], isNext: false })
+            return `${getLineupName(agent.self)}释放星核灼光，对 ${getLineupName(agent.goal)} 造成 ${damageData.harm} 伤害。${useBuff ? '(引燃)' : ''}` + baseMoreDamage(damageData)
+        }
+    },
+    "坠星裁决": {
+        name: "坠星裁决",
+        type: SkillType.伤害技,
+        info: '[怪物特有技能]对最多 4 个目标造成攻击力 1.6 倍伤害，追加自身暴击率 25% 与命中值 8% 的伤害。',
+        lv: 1,
+        mp: 140,
+        useTime: 3,
+        fn: function (agent, agentList, fn?) {
+            const goalList = getFreeList(agentList.goalList).slice(0, 4).filter(i => i) as BattleAttribute[]
+            const msgList = [`${getLineupName(agent.self)}宣告坠星裁决！`]
+            goalList.forEach((goal) => {
+                const damageData = new Damage({ self: agent.self, goal }).result({
+                    before: ((val) => {
+                        val.default_harm = Math.floor(val.default_harm * 1.6) +
+                            Math.floor((val.agent.self.chr + val.agent.self.gain.chr) * 0.25) +
+                            Math.floor((val.agent.self.hit + val.agent.self.gain.hit) * 0.08)
+                    })
+                })
+                fn({ type: SkillType.伤害技, damage: damageData, isNext: false, target: [goal] })
+                msgList.push(`- 对 ${getLineupName(goal)} 造成 ${damageData.harm} 伤害。` + baseMoreDamage(damageData))
+            })
+            return msgList.join('\n')
         }
     }
 };
