@@ -325,14 +325,16 @@ export const UserEquipment = {
                 suitMap[equipmentData[item.name].suit]++
             }
             const upValItem = {}
-            upValItem[item.mainUpType] = item.mainAttr + (item.secAttr[item.mainUpType] || 0)
+            upValItem[item.mainUpType] = (item.mainAttr || 0) + (item.secAttr[item.mainUpType] || 0)
             const lastUpVal = { ...item.secAttr, ...upValItem }
             // 单个装备添加最终属性值
             Object.keys(lastUpVal).forEach(i => {
+                const val = Number(lastUpVal[i]) || 0
+                if (val === 0) return
                 if (upVal[i] == undefined) {
                     upVal[i] = 0
                 }
-                upVal[i] += lastUpVal[i]
+                upVal[i] += val
             })
         })
         anget.suitMap = suitMap
