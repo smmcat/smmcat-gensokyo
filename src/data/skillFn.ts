@@ -1,8 +1,8 @@
 import { BattleAttribute, getLineupName } from "../battle";
-import { baseMoreDamage, BuffDamage, Damage, DamageConfig, giveDamage } from "../damage";
+import { baseMoreDamage, BuffDamage, Damage, DamageConfig, giveCure, giveDamage } from "../damage";
 import { User } from "../users";
 import { getFreeList, random } from "../utlis";
-import { BuffFn, BuffType, clearBuff, clearImprint, giveBuff } from "./buffFn";
+import { BuffFn, BuffType, checkEffectHit, clearBuff, clearImprint, giveBuff } from "./buffFn";
 
 export enum SkillType {
     释放失败 = '释放失败',
@@ -186,7 +186,7 @@ export const skillFn: SkillFn = {
         mp: 20,
         useTime: 6,
         fn: function (agent, agentList, fn?) {
-            if (agent.self.hp / (agent.self.maxHp + agent.self.gain.maxHp) < 0.4) {
+            if (agent.self.hp / agent.self.maxHp < 0.4) {
                 const damageData = new Damage(agent).result({
                     before: ((val) => {
                         val.default_harm += val.default_harm
@@ -288,7 +288,7 @@ export const skillFn: SkillFn = {
                         val.default_harm += Math.floor(val.default_harm * 0.2)
                     }),
                     beforEnd: ((val) => {
-                        if (val.harm && random(0, 10) < 5) {
+                        if (val.harm && checkEffectHit(agent.self, goal, 0.5)) {
                             useBuff = true
                             giveBuff(goal, { name: "中毒", timer: 3 })
                         }
@@ -321,7 +321,7 @@ export const skillFn: SkillFn = {
                         Math.floor((val.agent.self.hit + val.agent.self.gain.hit) * 0.1)
                 }),
                 beforEnd: ((val) => {
-                    if (val.harm && random(0, 10) < 6) {
+                    if (val.harm && checkEffectHit(agent.self, agent.goal, 0.6)) {
                         useBuff = true
                         giveBuff(agent.goal, { name: "晕眩", timer: 3 })
                     }
@@ -443,7 +443,7 @@ export const skillFn: SkillFn = {
                         Math.floor((val.agent.self.speed + val.agent.self.gain.speed) * 0.05)
                 }),
                 beforEnd: ((val) => {
-                    if (val.harm && random(0, 10) < 6) {
+                    if (val.harm && checkEffectHit(agent.self, agent.goal, 0.6)) {
                         useBuff = true
                         giveBuff(agent.goal, { name: "沉默", timer: 3 })
                     }
@@ -546,7 +546,7 @@ export const skillFn: SkillFn = {
                         val.default_harm = useAtk
                     }),
                     beforEnd: ((val) => {
-                        if (val.harm && agent.self.expand['frost-buff']?.val == 6 && random(0, 10) < 6) {
+                        if (val.harm && agent.self.expand['frost-buff']?.val == 6 && checkEffectHit(agent.self, goal, 0.6)) {
                             useBuff = true
                             giveBuff(goal, { name: "破绽", timer: 2 })
                         }
@@ -674,7 +674,7 @@ export const skillFn: SkillFn = {
                         val.default_harm = Math.floor(val.default_harm * 1.5)
                     })
                 })
-                if (damageData.harm && random(0, 10) <= 2) {
+                if (damageData.harm && checkEffectHit(agent.self, goal, 0.3)) {
                     isBuff = giveBuff(goal, { name: "引燃", timer: 3 })
                 }
                 fn({
@@ -734,7 +734,7 @@ export const skillFn: SkillFn = {
         useTime: 4,
         fn: function (agent, agentList, fn?) {
             giveBuff(agent.goal, { name: "破绽", timer: 2 })
-            const silence = random(0, 10) < 5
+            const silence = checkEffectHit(agent.self, agent.goal, 0.5)
             if (silence) giveBuff(agent.goal, { name: "沉默", timer: 2 })
             fn({ type: SkillType.减益技, isNext: false })
             return `${getLineupName(agent.self)}敲响墓钟，${getLineupName(agent.goal)}陷入破绽${silence ? '并被沉默' : ''}。`
@@ -776,7 +776,7 @@ export const skillFn: SkillFn = {
                             Math.floor((val.agent.self.hit + val.agent.self.gain.hit) * 0.08)
                     }),
                     beforEnd: ((val) => {
-                        if (val.harm && random(0, 10) < 3) {
+                        if (val.harm && checkEffectHit(agent.self, goal, 0.3)) {
                             useBuff = true
                             giveBuff(goal, { name: "晕眩", timer: 2 })
                         }
@@ -820,7 +820,7 @@ export const skillFn: SkillFn = {
                         Math.floor((val.agent.self.chr + val.agent.self.gain.chr) * 0.3)
                 }),
                 beforEnd: ((val) => {
-                    if (val.harm && random(0, 10) < 5) {
+                    if (val.harm && checkEffectHit(agent.self, agent.goal, 0.5)) {
                         useBuff = true
                         giveBuff(agent.goal, { name: "沉默", timer: 2 })
                     }
@@ -929,7 +929,7 @@ export const skillFn: SkillFn = {
                         Math.floor((val.agent.self.hit + val.agent.self.gain.hit) * 0.1)
                 }),
                 beforEnd: ((val) => {
-                    if (val.harm && random(0, 10) < 4) {
+                    if (val.harm && checkEffectHit(agent.self, agent.goal, 0.4)) {
                         useBuff = true
                         giveBuff(agent.goal, { name: "引燃", timer: 3 })
                     }
@@ -959,6 +959,43 @@ export const skillFn: SkillFn = {
                 })
                 fn({ type: SkillType.伤害技, damage: damageData, isNext: false, target: [goal] })
                 msgList.push(`- 对 ${getLineupName(goal)} 造成 ${damageData.harm} 伤害。` + baseMoreDamage(damageData))
+            })
+            return msgList.join('\n')
+        }
+    },
+    "不死鸟重生": {
+        name: "不死鸟重生",
+        type: SkillType.减益技,
+        info: '[怪物特有技能]血量低于50%时可释放。为敌方全体附加引燃（3回合），并根据被引燃的敌人数，恢复自身（10% × 引燃人数）的最大生命值。',
+        lv: 1,
+        mp: 80,
+        useTime: 3,
+        fn: function (agent, agentList, fn?) {
+            if (agent.self.hp / agent.self.maxHp >= 0.5) {
+                fn({
+                    type: SkillType.释放失败,
+                    isNext: true,
+                    err: '释放失败，未达成条件（血量需低于50%）。'
+                })
+                return ``
+            }
+            const enemyList = getFreeList(agentList.goalList).filter(i => i) as BattleAttribute[]
+            const msgList = [`${getLineupName(agent.self)} 生气了，释放了不死鸟重生！`]
+            enemyList.forEach((goal) => {
+                if (checkEffectHit(agent.self, goal, 0.8)) {
+                    giveBuff(goal, { name: "引燃", timer: 3 })
+                    msgList.push(`- ${getLineupName(goal)} 挂上了引燃！`)
+                }
+            })
+            const igniteCount = enemyList.filter((g) => g.buff['引燃']).length
+            if (igniteCount > 0) {
+                const healVal = Math.floor(agent.self.maxHp * 0.1 * igniteCount)
+                giveCure(agent.self, healVal)
+                msgList.push(`不死鸟之炎复苏！${getLineupName(agent.self)}恢复 ${healVal}HP（${igniteCount} 名敌人被引燃）。`)
+            }
+            fn({
+                type: SkillType.减益技,
+                isNext: false
             })
             return msgList.join('\n')
         }

@@ -18,6 +18,8 @@ export type MonsterBaseAttribute = {
     hp: number,
     /** 最大血量 */
     maxHp: number,
+    /** 自带护盾 */
+    shield?: number,
     /** 蓝量 */
     mp: number,
     /** 最大蓝量 */
@@ -38,6 +40,10 @@ export type MonsterBaseAttribute = {
     hit: number,
     /** 出手速度 */
     speed: number
+    /** 效果命中 */
+    effectHit?: number,
+    /** 效果抵抗 */
+    effectResist?: number,
     /** 获得经验 */
     giveExp: number,
     /** 获得货币 */
@@ -772,5 +778,33 @@ export const monsterData: MonsterTempData = {
             { name: '星砂装备礼盒', val: 2, radomVal: 80 }
         ],
         fn: [{ name: "坠星裁决", prob: 3 }, { name: "星核灼光", prob: 1 }]
+    },
+    "藤原妹红": {
+        name: "藤原妹红",
+        type: MonsterOccupation.BOSS,
+        info: '住在迷途竹林深处的不死之人，因服食蓬莱之药而不老不死。性格大大咧咧，常披着件万年不换的白衬衫在路边倒头就睡。打起架来却是不要命的主，越是濒死，那股不屈的狠劲越盛。',
+        pic: "http://smmcat.cn/run/gensokyo/藤原妹红.png",
+        hp: 120,
+        maxHp: 120,
+        mp: 40,
+        maxMp: 40,
+        atk: 28,
+        def: 5,
+        chr: 100,
+        csr: 0,
+        evasion: 100,
+        hit: 1200,
+        ghd: 1.4,
+        speed: 4,
+        shield: 10,
+        giveExp: 18,
+        giveMonetary: 3,
+        passiveList: ['不屈'],
+        giveProps: [
+            { name: '中级万能药', val: 2, radomVal: 40 },
+            { name: '中级复活卷轴', val: 1, radomVal: 35 },
+            { name: '妹红装备礼盒', val: 2, radomVal: 70 }
+        ],
+        fn: [{ name: "不死鸟重生", prob: 2 }]
     },
 }

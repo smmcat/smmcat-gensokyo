@@ -17,6 +17,7 @@ import { equipmentData, SuitDict } from './data/initEquipment';
 import { propsData } from './data/initProps';
 import { Chat } from './chatSend';
 import { BankFn } from './bank';
+import { Shop } from './shop';
 import { AreaType } from './data/initMap';
 export const name = 'smmcat-gensokyo'
 
@@ -48,6 +49,7 @@ export function apply(ctx: Context, config: Config) {
     Props.init(config, ctx)
     UserSkill.init(config, ctx)
     BankFn.init(config, ctx)
+    Shop.init(config, ctx)
   })
 
   const Queue = new AsyncOperationQueue()
@@ -800,5 +802,32 @@ export function apply(ctx: Context, config: Config) {
       } else {
         await Chat.send(session, '周围没有银行，取款失败...')
       }
+    })
+
+  ctx
+    .command('幻想乡/商店系统')
+  ctx
+    .command('商店系统/商店')
+    .action(async ({ session }) => {
+      const userData = await User.getUserAttribute(session)
+      if (!userData) return
+      GensokyoMap.initUserPoistion(session, userData)
+      await Shop.showShop(session)
+    })
+  ctx
+    .command('商店系统/购买 <props:string> <num:posint>')
+    .action(async ({ session }, props, num) => {
+      const userData = await User.getUserAttribute(session)
+      if (!userData) return
+      GensokyoMap.initUserPoistion(session, userData)
+      await Shop.buy(session, props, num)
+    })
+  ctx
+    .command('商店系统/出售 <props:string> <num:posint>')
+    .action(async ({ session }, props, num) => {
+      const userData = await User.getUserAttribute(session)
+      if (!userData) return
+      GensokyoMap.initUserPoistion(session, userData)
+      await Shop.sell(session, props, num)
     })
 }

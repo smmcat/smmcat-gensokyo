@@ -1,5 +1,5 @@
 import { BattleAttribute, getLineupName } from "../battle"
-import { BuffDamage, DamageConfig, giveCure } from "../damage"
+import { BuffDamage, DamageConfig, giveCure, giveShield } from "../damage"
 import { random } from "../utlis"
 import { buffTimeFormat, clearBuff, giveBuff } from "./buffFn"
 
@@ -11,7 +11,7 @@ export type PassiveDict = {
 export type PassiveItem = {
     name: string,
     info: string,
-    type: 'atk' | 'hit',
+    type: 'atk' | 'hit' | 'hited',
     lv: number,
     damageFn: (config: DamageConfig) => string
 }
@@ -39,7 +39,7 @@ export const PassiveFn: PassiveDict = {
         damageFn: function (config) {
             const val = Math.floor(config.harm * 0.2)
             if (val && random(0, 10) <= 4) {
-                const value = new BuffDamage(val, config.linkAgent.self, true).giveDamage()
+                const value = new BuffDamage(val, config.linkAgent.self, true).giveDamage().val
                 return `‣ ${getLineupName(config.linkAgent.goal)}触发被动 ¦${this.name}¦ HP-${value}`
             }
             return ``
@@ -91,7 +91,7 @@ export const PassiveFn: PassiveDict = {
                     Math.floor(config.linkAgent.goal.maxHp * 0.05)
                 )
                 if (upVal) {
-                    const value = new BuffDamage(upVal, config.linkAgent.goal, true).giveDamage()
+                    const value = new BuffDamage(upVal, config.linkAgent.goal, true).giveDamage().val
                     return `‣ ${getLineupName(config.linkAgent.self)}触发被动 ¦${this.name}¦ HP-${value}`
                 }
                 return ``
@@ -136,7 +136,7 @@ export const PassiveFn: PassiveDict = {
                 const timeVal = config.linkAgent.goal.buff['中毒'].timer
                 clearBuff(config.linkAgent.goal, { name: "中毒" })
                 const upDamage = Math.min(20, Math.floor((config.agent.goal.maxHp + config.agent.goal.maxHp) * 0.05) || 1) * timeVal
-                const value = new BuffDamage(upDamage, config.linkAgent.goal, true).giveDamage()
+                const value = new BuffDamage(upDamage, config.linkAgent.goal, true).giveDamage().val
                 return `‣ ${getLineupName(config.linkAgent.self)}触发被动 ¦${this.name}¦ 催化中毒${buffTimeFormat(timeVal)} 目标HP-${value}`
             } else {
                 if (random(0, 10) <= 2) {
@@ -159,6 +159,23 @@ export const PassiveFn: PassiveDict = {
             const val = Math.floor(config.harm * ((1 - (config.linkAgent.self.hp / config.linkAgent.self.maxHp)) / 2))
             config.harm += val
             return `‣ ${getLineupName(config.linkAgent.self)}触发被动 ¦${this.name}¦ 伤害+${val}`
+        }
+    },
+    "不屈": {
+        name: "不屈",
+        info: "当自身血量低于50%时，受到伤害后回复相当于本次实际扣血30%的护盾值",
+        type: 'hited',
+        lv: 1,
+        damageFn: function (config) {
+            const goal = config.linkAgent.goal
+            if (goal.hp / goal.maxHp < 0.5) {
+                const shieldVal = Math.floor((config.hpLoss || 0) * 0.3)
+                if (shieldVal > 0) {
+                    giveShield(goal, shieldVal)
+                    return `‣ ${getLineupName(goal)}触发被动 ¦${this.name}¦ 护盾+${shieldVal}`
+                }
+            }
+            return ``
         }
     }
 }

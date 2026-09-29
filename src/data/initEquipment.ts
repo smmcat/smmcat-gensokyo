@@ -235,6 +235,51 @@ export const equipmentData: { [keys: string]: AnyEquipmentItem } = {
         star: 4,
         mainUpType: 'maxMp',
         mainAttr: 260
+    },
+    "妹红之棒": {
+        type: Equipment.武器,
+        name: "妹红之棒",
+        suit: "不死者的威压",
+        info: "妹红随身携带的木棒，据说是拿来捅篝火、揍妖怪、敲人脑袋三用的。(2件套)战斗前增加 10% 暴击率。(4件套)战斗前获得基于最大生命值 2% 的护盾",
+        star: 5,
+        mainUpType: 'atk',
+        mainAttr: 58
+    },
+    "妹红头巾": {
+        type: Equipment.头盔,
+        name: "妹红头巾",
+        suit: "不死者的威压",
+        info: "缠在头上的红白布巾，既是装饰也是睡觉时用来遮脸的。(2件套)战斗前增加 10% 暴击率。(4件套)战斗前获得基于最大生命值 2% 的护盾",
+        star: 5,
+        mainUpType: 'csr',
+        mainAttr: 110
+    },
+    "妹红衬衫": {
+        type: Equipment.护甲,
+        name: "妹红衬衫",
+        suit: "不死者的威压",
+        info: "那件万年不变的白衬衫配红色吊带，看似破烂却怎么烧都烧不坏。(2件套)战斗前增加 10% 暴击率。(4件套)战斗前获得基于最大生命值 2% 的护盾",
+        star: 5,
+        mainUpType: 'maxHp',
+        mainAttr: 560
+    },
+    "妹红之坠": {
+        type: Equipment.项链,
+        name: "妹红之坠",
+        suit: "不死者的威压",
+        info: "挂在脖子上的旧式吊坠，里面封存着一缕不灭的火。(2件套)战斗前增加 10% 暴击率。(4件套)战斗前获得基于最大生命值 2% 的护盾",
+        star: 5,
+        mainUpType: 'chr',
+        mainAttr: 170
+    },
+    "妹红被单": {
+        type: Equipment.披风,
+        name: "妹红被单",
+        suit: "不死者的威压",
+        info: "风餐露宿、在路边倒头就睡时盖的那条被单，脏得看不出原本的颜色。(2件套)战斗前增加 10% 暴击率。(4件套)战斗前获得基于最大生命值 2% 的护盾",
+        star: 5,
+        mainUpType: 'reduction',
+        mainAttr: 0.08
     }
 }
 
@@ -286,6 +331,15 @@ export const SuitDict: SuitDictList = {
             agent.equipmentPassiveList.push('破势')
         },
         info: '坠星残留的辉光凝成的装备。(2件套)战斗前提高 10% 攻击力。(4件套)战斗时获得 破势 被动'
+    },
+    "不死者的威压": {
+        twoPiece(agent: BattleAttribute) {
+            agent.chr += 100
+        },
+        fourPiece(agent: BattleAttribute) {
+            agent.shield = Math.min(agent.maxHp, (agent.shield || 0) + Math.floor(agent.maxHp * 0.02))
+        },
+        info: '藤原妹红散落的随身物件所制。(2件套)战斗前增加 10% 暴击率。(4件套)战斗前获得基于最大生命值 2% 的护盾'
     }
 }
 

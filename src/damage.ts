@@ -43,6 +43,10 @@ export type DamageConfig = {
     isBadDef: boolean
     /** 减免伤害 */
     reductionVal: number
+    /** 实际扣除的生命值（受击后被动使用） */
+    hpLoss: number
+    /** 护盾抵挡的伤害值 */
+    shieldLoss: number
     /** 被动技能触发文本 */
     passiveMsg: string[]
 }
@@ -60,6 +64,8 @@ class Damage {
             isCsp: false,
             isBadDef: false,
             reductionVal: 0,
+            hpLoss: 0,
+            shieldLoss: 0,
             passiveMsg: []
         }
 
@@ -105,6 +111,12 @@ class Damage {
         if (this.config.isRealHarm) return this
         // 闪避成功不计算暴击
         if (this.config.isEvasion) return this
+        // 目标存在护盾时无法被暴击
+        if (this.config.linkAgent.goal.shield > 0) {
+            this.config.harm = this.config.default_harm
+            fn && fn(this.config)
+            return this
+        }
         const cspVal = ((self.chr + self.gain.chr) - goal.csr) / 10
         // 是否暴击成功
         if (random(0, 100) <= cspVal) {
@@ -187,23 +199,54 @@ class BuffDamage {
         this.val = val
         this.isRealHarm = isRealHarm
     }
-    giveDamage() {
+    giveDamage(): { val: number, msgs: string[] } {
+        const msgs: string[] = []
+        let harm: number
         if (this.isRealHarm) {
-            const val = this.goal.hp - this.val > 0 ? this.val : this.goal.hp
-            this.goal.hp -= val
-            return val
+            harm = this.goal.hp - this.val > 0 ? this.val : this.goal.hp
+            this.goal.hp -= harm
         } else {
             const def = (this.goal.def + this.goal.gain.def)
-            const val = (this.goal.hp + def) - this.val > 0 ? this.val - def : this.goal.hp
-            this.goal.hp -= val
-            return val
+            harm = (this.goal.hp + def) - this.val > 0 ? this.val - def : this.goal.hp
+            harm = Math.max(0, harm)
+            // 非真实伤害优先扣除护盾
+            if (this.goal.shield > 0) {
+                const shieldAbsorb = Math.min(this.goal.shield, harm)
+                this.goal.shield -= shieldAbsorb
+                harm -= shieldAbsorb
+            }
+            this.goal.hp -= harm
         }
+        // 受击后被动（hited）：DoT 等持续伤害结算后同样触发
+        msgs.push(...triggerHitedPassives(this.goal, harm))
+        return { val: harm, msgs }
     }
+}
+
+/** 触发目标的受击后（hited）被动，返回触发消息列表 */
+function triggerHitedPassives(goal: BattleAttribute, hpLoss: number): string[] {
+    const msgs: string[] = []
+    const passiveList = [...(goal.equipmentPassiveList || []), ...(goal.passiveList || [])]
+    passiveList.forEach((passiveName) => {
+        const passive = PassiveFn[passiveName]
+        if (passive && passive.type == 'hited') {
+            const config = {
+                agent: { self: goal, goal },
+                linkAgent: { self: goal, goal },
+                hpLoss,
+                harm: hpLoss,
+                passiveMsg: msgs
+            } as unknown as DamageConfig
+            const msg = passive.damageFn(config)
+            msg && msgs.push(msg)
+        }
+    })
+    return msgs
 }
 
 /** 给予目标伤害 */
 function giveDamage(self: BattleAttribute, goal: BattleAttribute, damage: DamageConfig) {
-    // 是否存在防御类被动技能
+    // 受击前被动（hit）：扣血前触发，可读取本次伤害值
     const allPressiveList = [...damage.linkAgent.goal.equipmentPassiveList, ...damage.linkAgent.goal.passiveList]
     if (!damage.isRealHarm && allPressiveList.length) {
         allPressiveList.forEach((passiveName) => {
@@ -213,14 +256,41 @@ function giveDamage(self: BattleAttribute, goal: BattleAttribute, damage: Damage
             }
         })
     }
-    if (goal.hp - damage.harm > 0) {
-        goal.hp -= damage.harm
-        return damage.harm
-    } else {
-        const lostHp = goal.hp
-        goal.hp = 0
-        return lostHp
+    let remainingHarm = damage.harm
+    // 非真实伤害优先扣除护盾，溢出部分计算到实际HP
+    let shieldAbsorb = 0
+    if (!damage.isRealHarm && goal.shield > 0) {
+        shieldAbsorb = Math.min(goal.shield, remainingHarm)
+        goal.shield -= shieldAbsorb
+        remainingHarm -= shieldAbsorb
     }
+    damage.shieldLoss = shieldAbsorb
+    // 扣除实际生命值
+    let hpLoss: number
+    if (goal.hp - remainingHarm > 0) {
+        goal.hp -= remainingHarm
+        hpLoss = remainingHarm
+    } else {
+        hpLoss = goal.hp
+        goal.hp = 0
+    }
+    // 受击后被动（hited）：实际扣血完成后触发，基于真实扣血量与扣血后状态
+    damage.hpLoss = hpLoss
+    if (allPressiveList.length) {
+        allPressiveList.forEach((passiveName) => {
+            if (PassiveFn[passiveName].type == 'hited') {
+                const msg = PassiveFn[passiveName].damageFn(damage)
+                msg && damage.passiveMsg.push(msg)
+            }
+        })
+    }
+    return hpLoss
+}
+
+/** 给予目标护盾（护盾不能大于最大血量） */
+function giveShield(goal: BattleAttribute, val: number) {
+    goal.shield = Math.min(goal.maxHp, Math.max(0, goal.shield + val))
+    return goal.shield
 }
 
 /** 治疗目标 */
@@ -235,12 +305,12 @@ function giveCure(goal: BattleAttribute, val: number, fn?: (msg: string) => void
         }
     })
     const upVal = goal.hp + val
-    if (upVal < goal.maxHp + goal.gain.maxHp) {
+    if (upVal < goal.maxHp) {
         goal.hp = upVal
         fn && fn(buffMsg.join('、'))
         return { val, buffMsg: buffMsg.join('、') }
     } else {
-        const abHp = (goal.maxHp + goal.gain.maxHp) - goal.hp
+        const abHp = (goal.maxHp) - goal.hp
         goal.hp += abHp
         fn && fn(buffMsg.join('、'))
         return { val: abHp, buffMsg: buffMsg.join('、') }
@@ -253,10 +323,11 @@ function moreDamageInfo(damage: DamageConfig) {
         + (damage.isEvasion ? `（闪避！）` : '')
         + (damage.isBadDef ? `（未破防！）` : '')
         + (damage.isRealHarm ? `(真实伤害)` : '')
+        + (damage.shieldLoss > 0 ? `（抵挡 ${damage.shieldLoss}）` : '')
 }
 
 /** 更多的伤害提示信息 */
 function baseMoreDamage(damageInfo: DamageConfig) {
     return moreDamageInfo(damageInfo) + (damageInfo.passiveMsg.length ? '\n' + damageInfo.passiveMsg.join('\n') : '')
 }
-export { Damage, BuffDamage, giveDamage, giveCure, moreDamageInfo, baseMoreDamage }
+export { Damage, BuffDamage, giveDamage, giveCure, giveShield, moreDamageInfo, baseMoreDamage }

@@ -59,6 +59,10 @@ export type UserBaseAttribute = {
     hit: number,
     /** 出手速度 */
     speed: number,
+    /** 效果命中 */
+    effectHit: number,
+    /** 效果抵抗 */
+    effectResist: number,
     /** 持有技能 */
     fn?: { name: string, prob: number }[],
     /** 被动技能 */
@@ -89,7 +93,9 @@ export type DatabaseUserAttribute = {
     /** 活力 */
     pp: number,
     /** 是否死亡 */
-    isDie: boolean
+    isDie: boolean,
+    /** 上次活力重置日期 */
+    lastPpResetDate: string
 }
 
 type UserTempData = {
@@ -118,7 +124,9 @@ export const UserOccDict: Record<UserOccupation, { info: string, initStatus: Use
             ghd: 1.2,
             speed: 5,
             evasion: 100,
-            hit: 1100
+            hit: 1100,
+            effectHit: 0,
+            effectResist: 0
         }
     },
     [UserOccupation.法师]: {
@@ -143,7 +151,9 @@ export const UserOccDict: Record<UserOccupation, { info: string, initStatus: Use
             ghd: 1.2,
             speed: 5,
             evasion: 100,
-            hit: 1100
+            hit: 1100,
+            effectHit: 0,
+            effectResist: 0
         }
     },
     [UserOccupation.刺客]: {
@@ -168,7 +178,9 @@ export const UserOccDict: Record<UserOccupation, { info: string, initStatus: Use
             ghd: 1.3,
             speed: 6,
             evasion: 120,
-            hit: 1100
+            hit: 1100,
+            effectHit: 0,
+            effectResist: 0
         }
     }
 };
@@ -196,7 +208,8 @@ export const User = {
                 hp: 'integer',
                 mp: 'integer',
                 pp: 'integer',
-                isDie: 'boolean'
+                isDie: 'boolean',
+                lastPpResetDate: 'string'
             },
             {
                 primary: 'userId',
@@ -388,7 +401,8 @@ export const User = {
             mp: UserOccDict[jobType].initStatus.mp,
             lv: 1,
             exp: 0,
-            isDie: false
+            isDie: false,
+            lastPpResetDate: new Date().toLocaleDateString()
         } as DatabaseUserAttribute
         User.ctx.database.create('smm_gensokyo_user_attribute', temp)
         User.userTempData[session.userId] = temp as DatabaseUserAttribute
@@ -419,7 +433,9 @@ export const User = {
                 `**命中率** ${((100 + (temp.hit - 1000) / 10)).toFixed(1)}% _(+${temp.equipmentUpInfo.hit && Math.floor(temp.equipmentUpInfo.hit / ((100 + (temp.hit - 1000) / 10))) || 0}%)_\n` +
                 `**暴击率** ${(temp.chr / 10).toFixed(1)}% _(+${temp.equipmentUpInfo.chr || 0}%)_\n` +
                 `**暴击伤害** ${(temp.ghd * 100).toFixed(1)}% _(+${temp.equipmentUpInfo.ghd && (temp.equipmentUpInfo.ghd * 100).toFixed() || 0}%)_` +
-                ((temp.csr + temp.equipmentUpInfo.csr) > 0 ? `\n**暴击抵抗** ${temp.csr + temp.equipmentUpInfo.csr}` : '')
+                ((temp.csr + temp.equipmentUpInfo.csr) > 0 ? `\n**暴击抵抗** ${temp.csr + temp.equipmentUpInfo.csr}` : '') +
+                ((temp.effectHit + (temp.equipmentUpInfo.effectHit || 0)) > 0 ? `\n**效果命中** ${temp.effectHit + (temp.equipmentUpInfo.effectHit || 0)}` : '') +
+                ((temp.effectResist + (temp.equipmentUpInfo.effectResist || 0)) > 0 ? `\n**效果抵抗** ${temp.effectResist + (temp.equipmentUpInfo.effectResist || 0)}` : '')
         } else {
             return `昵称：${temp.playName}\n` +
                 `职位：${temp.type}\n` +
@@ -436,7 +452,9 @@ export const User = {
                 `【命中率】${((100 + (temp.hit - 1000) / 10)).toFixed(1)}% (+${temp.equipmentUpInfo.hit && Math.floor(temp.equipmentUpInfo.hit / ((100 + (temp.hit - 1000) / 10))) || 0}%)\n` +
                 `【暴击率】${(temp.chr / 10).toFixed(1)}% (+${temp.equipmentUpInfo.chr || 0}%)\n` +
                 `【暴击伤害】${(temp.ghd * 100).toFixed(1)}% (+${temp.equipmentUpInfo.ghd && (temp.equipmentUpInfo.ghd * 100).toFixed() || 0}%)` +
-                ((temp.csr + temp.equipmentUpInfo.csr) > 0 ? `\n【暴击抵抗】${temp.csr}` : '')
+                ((temp.csr + temp.equipmentUpInfo.csr) > 0 ? `\n【暴击抵抗】${temp.csr}` : '') +
+                ((temp.effectHit + (temp.equipmentUpInfo.effectHit || 0)) > 0 ? `\n【效果命中】${temp.effectHit + (temp.equipmentUpInfo.effectHit || 0)}` : '') +
+                ((temp.effectResist + (temp.equipmentUpInfo.effectResist || 0)) > 0 ? `\n【效果抵抗】${temp.effectResist + (temp.equipmentUpInfo.effectResist || 0)}` : '')
         }
     },
     /** 写入用户数据到数据库 */
@@ -450,7 +468,8 @@ export const User = {
             pp: userInfo.pp,
             mp: userInfo.mp,
             lv: userInfo.lv,
-            exp: userInfo.exp
+            exp: userInfo.exp,
+            lastPpResetDate: userInfo.lastPpResetDate || ''
         } as DatabaseUserAttribute
         User.ctx.database.set('smm_gensokyo_user_attribute', { userId }, temp)
     },
@@ -626,6 +645,18 @@ export const User = {
             currentPP: userInfo.pp
         })
         await User.setDatabaseUserAttribute(userId)
+    },
+    /** 每日检查活力值是否需要重置（跨天则恢复满） */
+    async checkDailyPpReset(userId: string) {
+        const userInfo = User.userTempData[userId]
+        if (!userInfo) return
+        const today = new Date().toLocaleDateString()
+        if (userInfo.lastPpResetDate !== today) {
+            const { maxPp } = User.getUserAttributeByUserId(userId)
+            userInfo.pp = maxPp
+            userInfo.lastPpResetDate = today
+            await User.setDatabaseUserAttribute(userId)
+        }
     },
     /** 给予玩家货币 */
     async giveMonetary(userId: string, val: number, fn?: (upData: {

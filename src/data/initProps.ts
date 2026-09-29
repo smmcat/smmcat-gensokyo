@@ -144,7 +144,7 @@ export const propsData: propsTemplateData = {
         name: "技能书-毒之牙",
         type: PropType.技能书,
         info: '通过该道具可直接学习主动技能【毒之牙】供战斗使用。',
-        price: 1500,
+        price: 120,
         fn: async function (session) {
             if (BattleData.isBattleByUserId(session.userId)) {
                 session.send(`该道具在战斗中无法使用！请在小队脱离战斗后使用。`)
@@ -159,7 +159,7 @@ export const propsData: propsTemplateData = {
         name: "技能书-恐怖催眠术",
         type: PropType.技能书,
         info: '通过该道具可直接学习主动技能【恐怖催眠术】供战斗使用。',
-        price: 1500,
+        price: 100,
         fn: async function (session) {
             if (BattleData.isBattleByUserId(session.userId)) {
                 session.send(`该道具在战斗中无法使用！请在小队脱离战斗后使用。`)
@@ -174,7 +174,7 @@ export const propsData: propsTemplateData = {
         name: "技能书-初级驱散",
         type: PropType.技能书,
         info: '通过该道具可直接学习主动技能【初级驱散】供战斗使用。',
-        price: 1500,
+        price: 50,
         fn: async function (session) {
             if (BattleData.isBattleByUserId(session.userId)) {
                 session.send(`该道具在战斗中无法使用！请在小队脱离战斗后使用。`)
@@ -189,7 +189,7 @@ export const propsData: propsTemplateData = {
         name: "技能书-治愈之光",
         type: PropType.技能书,
         info: '通过该道具可直接学习主动技能【治愈之光】供战斗使用。',
-        price: 1500,
+        price: 50,
         fn: async function (session) {
             if (BattleData.isBattleByUserId(session.userId)) {
                 session.send(`该道具在战斗中无法使用！请在小队脱离战斗后使用。`)
@@ -204,7 +204,7 @@ export const propsData: propsTemplateData = {
         name: "技能书-飞雪",
         type: PropType.技能书,
         info: '通过该道具可直接学习主动技能【飞雪】供战斗使用。',
-        price: 1500,
+        price: 300,
         fn: async function (session) {
             if (BattleData.isBattleByUserId(session.userId)) {
                 session.send(`该道具在战斗中无法使用！请在小队脱离战斗后使用。`)
@@ -219,7 +219,7 @@ export const propsData: propsTemplateData = {
         name: "技能书-霜月架势",
         type: PropType.技能书,
         info: '通过该道具可直接学习主动技能【霜月架势】供战斗使用。',
-        price: 1500,
+        price: 300,
         fn: async function (session) {
             if (BattleData.isBattleByUserId(session.userId)) {
                 session.send(`该道具在战斗中无法使用！请在小队脱离战斗后使用。`)
@@ -234,7 +234,7 @@ export const propsData: propsTemplateData = {
         name: "被动书-针女",
         type: PropType.技能书,
         info: '通过该道具可直接学习被动技能【针女】供战斗使用。',
-        price: 1500,
+        price: 300,
         fn: async function (session) {
             if (BattleData.isBattleByUserId(session.userId)) {
                 session.send(`该道具在战斗中无法使用！请在小队脱离战斗后使用。`)
@@ -260,7 +260,7 @@ export const propsData: propsTemplateData = {
         name: "雾城装备礼盒",
         type: PropType.礼包类,
         info: '通过该道具可在 "雾巡长刃、雾巡头盔、雾巡护甲、雾巡短靴、雾巡腰裤" 以下装备中随机获得一件。',
-        price: 120,
+        price: 40,
         fn: async function (session) {
             const equipmentList = ["雾巡长刃", "雾巡头盔", "雾巡护甲", "雾巡短靴", "雾巡腰裤"]
             const equipment = await UserEquipment.getEquipment(session.userId, { name: equipmentList[Math.floor(equipmentList.length * Math.random())] })
@@ -271,7 +271,7 @@ export const propsData: propsTemplateData = {
         name: "月潮装备礼盒",
         type: PropType.礼包类,
         info: '通过该道具可在 "潮汐法杖、潮汐项链、潮汐披风、潮汐护甲、潮汐长靴" 以下装备中随机获得一件。',
-        price: 260,
+        price: 50,
         fn: async function (session) {
             const equipmentList = ["潮汐法杖", "潮汐项链", "潮汐披风", "潮汐护甲", "潮汐长靴"]
             const equipment = await UserEquipment.getEquipment(session.userId, { name: equipmentList[Math.floor(equipmentList.length * Math.random())] })
@@ -282,9 +282,20 @@ export const propsData: propsTemplateData = {
         name: "星砂装备礼盒",
         type: PropType.礼包类,
         info: '通过该道具可在 "星砂刃、星砂冠、星砂甲、星砂坠、星砂披风" 以下装备中随机获得一件。',
-        price: 520,
+        price: 60,
         fn: async function (session) {
             const equipmentList = ["星砂刃", "星砂冠", "星砂甲", "星砂坠", "星砂披风"]
+            const equipment = await UserEquipment.getEquipment(session.userId, { name: equipmentList[Math.floor(equipmentList.length * Math.random())] })
+            await session.send(`恭喜获得：${equipment.name}[${equipment.fid}]`)
+        }
+    },
+    "妹红装备礼盒": {
+        name: "妹红装备礼盒",
+        type: PropType.礼包类,
+        info: '通过该道具可在 "妹红之棒、妹红头巾、妹红衬衫、妹红之坠、妹红被单" 以下装备中随机获得一件。',
+        price: 80,
+        fn: async function (session) {
+            const equipmentList = ["妹红之棒", "妹红头巾", "妹红衬衫", "妹红之坠", "妹红被单"]
             const equipment = await UserEquipment.getEquipment(session.userId, { name: equipmentList[Math.floor(equipmentList.length * Math.random())] })
             await session.send(`恭喜获得：${equipment.name}[${equipment.fid}]`)
         }

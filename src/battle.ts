@@ -56,6 +56,8 @@ export type BattleAttribute = {
     hp: number,
     /** 最大血量 */
     maxHp: number,
+    /** 护盾值 */
+    shield: number,
     /** 蓝量 */
     mp: number,
     /** 最大蓝量 */
@@ -76,6 +78,10 @@ export type BattleAttribute = {
     hit: number,
     /** 出手速度 */
     speed: number,
+    /** 效果命中 */
+    effectHit: number,
+    /** 效果抵抗 */
+    effectResist: number,
     /** 临时增益状态 */
     gain: BuffGain,
     /** 伤害减免 */
@@ -97,8 +103,6 @@ export type BattleAttribute = {
 }
 
 export type BuffGain = {
-    /** 临时增益-最大血量 */
-    maxHp?: number,
     /** 临时增益-最大蓝量 */
     maxMp?: number,
     /** 临时增益-攻击力 */
@@ -115,6 +119,10 @@ export type BuffGain = {
     hit?: number,
     /** 临时增益-出手速度 */
     speed?: number
+    /** 临时增益-效果命中 */
+    effectHit?: number
+    /** 临时增益-效果抵抗 */
+    effectResist?: number
     /** 是否眩晕 */
     dizziness?: boolean
     /** 是否混乱 */
@@ -456,7 +464,7 @@ export const BattleData = {
         team.self.forEach((item) => {
             if (item.hp > 0) {
                 selfTemp.push(`lv.${item.lv}[${item.name}]${getBuffTemplate(item)}:\n` +
-                    `${generateHealthDisplay(item.hp, item.maxHp + item.gain.maxHp)}(${item.hp}/${item.maxHp + item.gain.maxHp})` +
+                    `${generateHealthDisplay(item.hp, item.maxHp)}(${item.hp}/${item.maxHp})${item.shield > 0 ? `[+${item.shield}]` : ''}` +
                     `\nMP:${item.mp}/${item.maxMp + item.gain.maxMp}`)
             } else {
                 selfTemp.push(`lv.${item.lv}[${item.name}]:已阵亡`)
@@ -465,7 +473,7 @@ export const BattleData = {
         team.goal.forEach((item) => {
             if (item.hp > 0) {
                 goalTemp.push(`lv.${item.lv}[${item.name}]${getBuffTemplate(item)}:\n` +
-                    `${generateHealthDisplay(item.hp, item.maxHp + item.gain.maxHp)}(${item.hp}/${item.maxHp + item.gain.maxHp})` +
+                    `${generateHealthDisplay(item.hp, item.maxHp)}(${item.hp}/${item.maxHp})${item.shield > 0 ? `[+${item.shield}]` : ''}` +
                     `\nMP:${item.mp}/${item.maxMp + item.gain.maxMp}`)
             } else {
                 goalTemp.push(`lv.${item.lv}[${item.name}]:已阵亡`)
@@ -501,6 +509,10 @@ export const BattleData = {
     },
     /** 打怪逃跑 */
     async battleEscape(session: Session) {
+        if (!BattleData.isBattle(session)) {
+            await session.send('当前没有在战斗中，无法逃跑！')
+            return
+        }
         const currentBattle = BattleData.lastPlay[session.userId]
         if (currentBattle.isPK) {
             await session.send(`与玩家PK中途不能逃跑啊！`)
@@ -740,6 +752,7 @@ export const BattleData = {
         const allList = [...tempData.self, ...tempData.goal].filter((item) => item.type == '玩家')
         const selfList = tempData.self.filter((item) => item.type == '玩家')
         const goalList = tempData.goal.filter((item) => item.type == '玩家')
+        const isTeam = selfList.length > 1 || goalList.length > 1
 
         const msg = async (val: {
             name: string
@@ -771,6 +784,12 @@ export const BattleData = {
                 for (const agent of allList) {
                     aynchronize(agent)
                     if (agent.for == 'self') {
+                        await User.checkDailyPpReset(agent.userId)
+                        if (User.userTempData[agent.userId].pp < 2) {
+                            await session.send(isTeam ? `${agent.name} 活力值低，本次无奖励` : `${agent.name}：活力值不足，无法领取奖励！`)
+                            continue
+                        }
+                        await User.lostPP(agent.userId, 2)
                         await User.giveExp(agent.userId, 20, async (val) => await msg(val))
                         await User.giveMonetary(agent.userId, 5)
                     }
@@ -780,6 +799,12 @@ export const BattleData = {
                 for (const agent of allList) {
                     aynchronize(agent)
                     if (agent.for == 'goal') {
+                        await User.checkDailyPpReset(agent.userId)
+                        if (User.userTempData[agent.userId].pp < 2) {
+                            await session.send(isTeam ? `${agent.name} 活力值低，本次无奖励` : `${agent.name}：活力值不足，无法领取奖励！`)
+                            continue
+                        }
+                        await User.lostPP(agent.userId, 2)
                         await User.giveExp(agent.userId, 20, async (val) => await msg(val))
                         await User.giveMonetary(agent.userId, 5)
                     }
@@ -790,6 +815,12 @@ export const BattleData = {
             for (const agent of selfList) {
                 aynchronize(agent)
                 if (overInfo.win == 'self') {
+                    await User.checkDailyPpReset(agent.userId)
+                    if (User.userTempData[agent.userId].pp < 2) {
+                        resMsg.push(isTeam ? `${agent.name} 活力值低，本次无奖励` : `${agent.name}：活力值不足（剩余${User.userTempData[agent.userId].pp}），无法领取奖励！每日0点重置活力值。`)
+                        continue
+                    }
+                    await User.lostPP(agent.userId, 2)
                     // 获取怪物经验总值
                     let val = 0
                     // 获得怪物货币总值
@@ -816,7 +847,7 @@ export const BattleData = {
                         }
                     })
 
-                    _msg += `${agent.name}：获得${val}EXP、${monetary}货币！`
+                    _msg += `${agent.name}：获得${val}EXP、${monetary}货币！（消耗2活力，剩余${User.userTempData[agent.userId].pp}）`
                     // 奖励结算
                     props.length && await User.giveProps(agent.userId, props, async (val) => {
                         const propsDict = {}
@@ -876,6 +907,7 @@ function initBattleAttribute(data: UserBaseAttribute | MonsterBaseAttribute): Ba
             selfType: userData.type,
             hp: userData.hp,
             maxHp: userData.maxHp,
+            shield: 0,
             mp: userData.mp,
             maxMp: userData.maxMp,
             atk: userData.atk,
@@ -886,10 +918,11 @@ function initBattleAttribute(data: UserBaseAttribute | MonsterBaseAttribute): Ba
             evasion: userData.evasion,
             hit: userData.hit,
             speed: userData.speed,
+            effectHit: userData.effectHit,
+            effectResist: userData.effectResist,
             reduction: 0,
             TreatmentUp: 0,
             gain: {
-                maxHp: 0,
                 maxMp: 0,
                 atk: 0,
                 def: 0,
@@ -898,6 +931,8 @@ function initBattleAttribute(data: UserBaseAttribute | MonsterBaseAttribute): Ba
                 evasion: 0,
                 hit: 0,
                 speed: 0,
+                effectHit: 0,
+                effectResist: 0,
                 chaos: false,
                 dizziness: false,
                 silence: false,
@@ -926,6 +961,7 @@ function initBattleAttribute(data: UserBaseAttribute | MonsterBaseAttribute): Ba
             lv: monsterData.lv,
             hp: monsterData.hp,
             maxHp: monsterData.maxHp,
+            shield: Math.min(monsterData.maxHp, monsterData.shield || 0),
             mp: monsterData.mp,
             maxMp: monsterData.maxMp,
             atk: monsterData.atk,
@@ -936,10 +972,11 @@ function initBattleAttribute(data: UserBaseAttribute | MonsterBaseAttribute): Ba
             evasion: monsterData.evasion,
             hit: monsterData.hit,
             speed: monsterData.speed,
+            effectHit: monsterData.effectHit || 0,
+            effectResist: monsterData.effectResist || 0,
             reduction: 0,
             TreatmentUp: 0,
             gain: {
-                maxHp: 0,
                 maxMp: 0,
                 atk: 0,
                 def: 0,
@@ -948,6 +985,8 @@ function initBattleAttribute(data: UserBaseAttribute | MonsterBaseAttribute): Ba
                 evasion: 0,
                 hit: 0,
                 speed: 0,
+                effectHit: 0,
+                effectResist: 0,
                 chaos: false,
                 dizziness: false,
                 silence: false,

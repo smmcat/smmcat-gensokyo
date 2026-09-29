@@ -78,6 +78,10 @@ export type SecAttrDict = {
     hit?: number,
     /** 出手速度 */
     speed?: number
+    /** 效果命中 */
+    effectHit?: number
+    /** 效果抵抗 */
+    effectResist?: number
     /** 伤害减免 */
     reduction?: number
     /** 治疗加成 */
@@ -106,6 +110,10 @@ export const EquipmentAttrStringDict = {
     hit: { name: '命中值', up: 1 },
     /** 出手速度 */
     speed: { name: '出手速度', up: 1 },
+    /** 效果命中 */
+    effectHit: { name: '效果命中', up: 1 },
+    /** 效果抵抗 */
+    effectResist: { name: '效果抵抗', up: 1 },
     /** 伤害减免 */
     reduction: { name: '伤害减免', up: 0.1 },
     /** 治疗加成 */
@@ -213,7 +221,7 @@ export const UserEquipment = {
         const secAttr = {}
         if (['maxHp', 'maxMp'].includes(upAttr)) {
             secAttr[upAttr] = Math.floor(10 * EquipmentAttrStringDict[upAttr].up * equipmentType.star)
-        } else if (['evasion', 'hit', 'csr'].includes(upAttr)) {
+        } else if (['evasion', 'hit', 'csr', 'effectHit', 'effectResist'].includes(upAttr)) {
             secAttr[upAttr] = Math.floor(5 * EquipmentAttrStringDict[upAttr].up * equipmentType.star)
         } else if (['chr', 'atk'].includes(upAttr)) {
             secAttr[upAttr] = Math.floor(3 * EquipmentAttrStringDict[upAttr].up * equipmentType.star)

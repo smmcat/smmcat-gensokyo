@@ -93,7 +93,7 @@ export const BuffFn: BuffFnList = {
         info: "每回合回复5%最大血量（最低回复1血）",
         fn: function (agent, fn?) {
             if (agent.hp <= 0) return
-            const val = Math.floor((agent.maxHp + agent.gain.maxHp) * 0.05) || 1;
+            const val = Math.floor((agent.maxHp) * 0.05) || 1;
             fn && fn({
                 type: BuffType.治疗,
                 val
@@ -106,7 +106,7 @@ export const BuffFn: BuffFnList = {
         info: "自身每回合受到5%最大血量伤害的真实伤害（最低扣除1血，最高20血）",
         fn: function (agent: BattleAttribute, fn?) {
             if (agent.hp <= 0) return
-            const val = Math.min(20, Math.floor((agent.maxHp + agent.gain.maxHp) * 0.05) || 1);
+            const val = Math.min(20, Math.floor((agent.maxHp) * 0.05) || 1);
             fn && fn({
                 type: BuffType.伤害,
                 val,
@@ -285,6 +285,21 @@ export function buffTimeFormat(time: number) {
     return dict[time] || '⁺'
 }
 
+/**
+ * 负面Buff命中判定
+ * @param self      施加方
+ * @param goal      目标方
+ * @param baseProb  基础概率（0~1，如 0.4 代表40%）
+ * @returns 是否命中
+ */
+export function checkEffectHit(self: BattleAttribute, goal: BattleAttribute, baseProb: number): boolean {
+    const hitVal = (self.effectHit || 0) + (self.gain.effectHit || 0)
+    const resistVal = (goal.effectResist || 0) + (goal.gain.effectResist || 0)
+    // 效果命中：每1000点 +100% 基础概率；效果抵抗：每1000点 -50% 基础概率
+    const finalProb = baseProb * (1 + hitVal / 1000) * (1 - resistVal / 2000)
+    return random(0, 100) < finalProb * 100
+}
+
 /** 为目标添加BUFF */
 export function giveBuff(agent: BattleAttribute, buff: { name: string, timer: number }) {
     const buffInfo = BuffFn[buff.name] || null
@@ -332,10 +347,10 @@ export function settlementBuff(agent: BattleAttribute) {
     agent.gain.evasion = 0
     agent.gain.ghd = 0
     agent.gain.hit = 0
-    agent.gain.maxHp = 0
-    agent.gain.maxMp = 0
     agent.gain.maxMp = 0
     agent.gain.speed = 0
+    agent.gain.effectHit = 0
+    agent.gain.effectResist = 0
     agent.gain.reduction = 0
     agent.gain.TreatmentUp = 0
     agent.gain.dizziness = false
@@ -346,7 +361,6 @@ export function settlementBuff(agent: BattleAttribute) {
     const gainDict = {
         atk: '攻击',
         def: '防御',
-        maxHp: '最大生命值',
         maxMp: '最大魔法值',
         chr: '暴击率',
         ghd: '暴击伤害',
@@ -361,8 +375,9 @@ export function settlementBuff(agent: BattleAttribute) {
         switch (buffInfo.type) {
             case BuffType.伤害:
                 buffInfo.fn(agent, (val: HarmBuffParams) => {
-                    const value = new BuffDamage(val.val, agent, val.isRealHarm).giveDamage()
-                    msgList.push(`${buffInfo.name}-${value}HP` + (val.msg ? val.msg : ''))
+                    const res = new BuffDamage(val.val, agent, val.isRealHarm).giveDamage()
+                    msgList.push(`${buffInfo.name}-${res.val}HP` + (val.msg ? val.msg : ''))
+                    res.msgs.length && msgList.push(...res.msgs)
                 })
                 break;
             case BuffType.治疗:

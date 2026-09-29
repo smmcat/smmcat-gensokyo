@@ -100,6 +100,7 @@ export const Monster = {
             temp.hit *= currentBenchmark.hit;
             temp.ghd *= currentBenchmark.ghd;
             temp.speed *= currentBenchmark.speed;
+            if (temp.shield) temp.shield *= currentBenchmark.maxHp;
         }
 
         // 确保当前HP和MP不超过最大值
@@ -114,6 +115,7 @@ export const Monster = {
         temp.hit = Math.floor(temp.hit);
         temp.ghd = parseFloat(temp.ghd.toFixed(1));
         temp.speed = Math.round(temp.speed);
+        if (temp.shield) temp.shield = Math.floor(temp.shield);
 
         return temp;
     },

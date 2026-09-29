@@ -88,7 +88,7 @@ export const BseMap: BaseAreaData = {
         "1层-商店": {
             floor: 1,
             areaName: "1层-商店",
-            type: AreaType.安全区,
+            type: AreaType.商店,
             needLv: 1,
             top: "银行",
             right: "农田",
@@ -254,7 +254,9 @@ export const BseMap: BaseAreaData = {
         "2层-商店": {
             floor: 2,
             areaName: "2层-商店",
-            type: AreaType.安全区,
+            npc: ["夜雀"],
+            info: "嗨嗨，我是夜雀，你可以在这里购买一些物品。",
+            type: AreaType.商店,
             needLv: 1,
             top: "旅馆",
             left: "希望之泉",
@@ -335,7 +337,7 @@ export const BseMap: BaseAreaData = {
             type: AreaType.冒险区,
             needLv: 1,
             top: "咆哮营地",
-            monster: [{ name: "星见雅", lv: 30 }]
+            monster: [{ name: "星见雅", lv: 35 }, { name: "藤原妹红", lv: 30 }, { name: "蓬莱山辉夜", lv: 30 }]
         }
     },
     3: {
@@ -355,8 +357,8 @@ export const BseMap: BaseAreaData = {
             needLv: 25,
             left: "传送门",
             top: "旧钟楼",
-            right: "3层-商店",
-            down: "薄雾街口"
+            right: "齿轮仓库",
+            down: "屋顶水道"
         },
         "旧钟楼": {
             floor: 3,
@@ -366,29 +368,13 @@ export const BseMap: BaseAreaData = {
             down: "兹穆弗特主街区",
             right: "西城门"
         },
-        "3层-商店": {
-            floor: 3,
-            areaName: "3层-商店",
-            type: AreaType.安全区,
-            needLv: 25,
-            left: "兹穆弗特主街区",
-            down: "巡礼驿站"
-        },
-        "巡礼驿站": {
-            floor: 3,
-            areaName: "巡礼驿站",
-            type: AreaType.安全区,
-            needLv: 25,
-            top: "3层-商店",
-            left: "薄雾街口"
-        },
         "西城门": {
             floor: 3,
             areaName: "西城门",
             type: AreaType.冒险区,
             needLv: 26,
             left: "旧钟楼",
-            down: "薄雾街口",
+            right: "薄雾街口",
             monster: [{ name: "雾灯巡卫", lv: 28 }]
         },
         "薄雾街口": {
@@ -396,11 +382,37 @@ export const BseMap: BaseAreaData = {
             areaName: "薄雾街口",
             type: AreaType.冒险区,
             needLv: 26,
-            top: "兹穆弗特主街区",
+            top: "3层-商店",
             left: "西城门",
             right: "巡礼驿站",
             down: "灰瓦工坊",
             monster: [{ name: "雾灯巡卫", lv: 29 }, { name: "街角魔偶", lv: 30 }]
+        },
+        "巡礼驿站": {
+            floor: 3,
+            areaName: "巡礼驿站",
+            type: AreaType.安全区,
+            needLv: 25,
+            left: "薄雾街口"
+        },
+        "3层-商店": {
+            floor: 3,
+            areaName: "3层-商店",
+            npc: ["夜雀"],
+            info: "嗨嗨，我是夜雀，你可以在这里购买一些物品。",
+            type: AreaType.商店,
+            needLv: 25,
+            down: "薄雾街口"
+        },
+        "齿轮仓库": {
+            floor: 3,
+            areaName: "齿轮仓库",
+            type: AreaType.冒险区,
+            needLv: 30,
+            left: "兹穆弗特主街区",
+            right: "灰瓦工坊",
+            down: "雾钟塔",
+            monster: [{ name: "齿轮守墓人", lv: 33 }]
         },
         "灰瓦工坊": {
             floor: 3,
@@ -409,25 +421,15 @@ export const BseMap: BaseAreaData = {
             needLv: 28,
             top: "薄雾街口",
             left: "齿轮仓库",
-            right: "屋顶水道",
             monster: [{ name: "街角魔偶", lv: 31 }]
-        },
-        "齿轮仓库": {
-            floor: 3,
-            areaName: "齿轮仓库",
-            type: AreaType.冒险区,
-            needLv: 30,
-            right: "灰瓦工坊",
-            down: "雾钟塔",
-            monster: [{ name: "齿轮守墓人", lv: 33 }]
         },
         "屋顶水道": {
             floor: 3,
             areaName: "屋顶水道",
             type: AreaType.冒险区,
             needLv: 30,
-            left: "灰瓦工坊",
-            down: "雾钟塔",
+            top: "兹穆弗特主街区",
+            right: "雾钟塔",
             monster: [{ name: "雨巷妖精", lv: 32 }]
         },
         "雾钟塔": {
@@ -436,7 +438,7 @@ export const BseMap: BaseAreaData = {
             type: AreaType.BOSS区,
             needLv: 34,
             top: "齿轮仓库",
-            right: "屋顶水道",
+            left: "屋顶水道",
             monster: [{ name: "兹穆弗特钟卫", lv: 36 }]
         }
     },
@@ -478,7 +480,9 @@ export const BseMap: BaseAreaData = {
         "4层-商店": {
             floor: 4,
             areaName: "4层-商店",
-            type: AreaType.安全区,
+            npc: ["夜雀"],
+            info: "嗨嗨，我是夜雀，你可以在这里购买一些物品。",
+            type: AreaType.商店,
             needLv: 35,
             left: "月影港",
             top: "灯塔银行",
@@ -501,7 +505,6 @@ export const BseMap: BaseAreaData = {
             needLv: 37,
             top: "4层-商店",
             left: "月影浅滩",
-            down: "回潮洞口",
             monster: [{ name: "潮汐歌姬", lv: 40 }]
         },
         "回潮洞口": {
@@ -510,7 +513,6 @@ export const BseMap: BaseAreaData = {
             type: AreaType.冒险区,
             needLv: 39,
             top: "月影浅滩",
-            right: "珊瑚阶梯",
             down: "沉船甲板",
             monster: [{ name: "月湾水灵", lv: 41 }, { name: "潮汐歌姬", lv: 42 }]
         },
@@ -521,7 +523,7 @@ export const BseMap: BaseAreaData = {
             needLv: 42,
             top: "回潮洞口",
             left: "潮声回廊",
-            right: "暗礁栈道",
+            down: "暗礁栈道",
             monster: [{ name: "沉船骑士", lv: 44 }]
         },
         "潮声回廊": {
@@ -538,8 +540,8 @@ export const BseMap: BaseAreaData = {
             areaName: "暗礁栈道",
             type: AreaType.冒险区,
             needLv: 43,
-            left: "沉船甲板",
-            down: "月蚀灯塔",
+            top: "沉船甲板",
+            left: "月蚀灯塔",
             monster: [{ name: "月湾水灵", lv: 45 }, { name: "沉船骑士", lv: 46 }]
         },
         "月蚀灯塔": {
@@ -590,7 +592,9 @@ export const BseMap: BaseAreaData = {
         "5层-商店": {
             floor: 5,
             areaName: "5层-商店",
-            type: AreaType.安全区,
+            npc: ["夜雀"],
+            info: "嗨嗨，我是夜雀，你可以在这里购买一些物品。",
+            type: AreaType.商店,
             needLv: 48,
             left: "星砂集市",
             top: "星币银行",
@@ -603,7 +607,6 @@ export const BseMap: BaseAreaData = {
             needLv: 49,
             top: "星砂集市",
             right: "陨星阶梯",
-            down: "折光沙丘",
             monster: [{ name: "星砂游魂", lv: 50 }]
         },
         "陨星阶梯": {
@@ -613,7 +616,8 @@ export const BseMap: BaseAreaData = {
             needLv: 50,
             top: "5层-商店",
             left: "星砂外缘",
-            down: "折光沙丘",
+            right: "折光沙丘",
+            down: "流星峡谷",
             monster: [{ name: "陨铁傀儡", lv: 52 }]
         },
         "折光沙丘": {
@@ -621,9 +625,8 @@ export const BseMap: BaseAreaData = {
             areaName: "折光沙丘",
             type: AreaType.冒险区,
             needLv: 52,
-            top: "星砂外缘",
-            right: "陨星阶梯",
-            down: "流星峡谷",
+            left: "陨星阶梯",
+            down: "星核祭坛",
             monster: [{ name: "星砂游魂", lv: 53 }, { name: "陨铁傀儡", lv: 54 }]
         },
         "流星峡谷": {
@@ -631,7 +634,7 @@ export const BseMap: BaseAreaData = {
             areaName: "流星峡谷",
             type: AreaType.冒险区,
             needLv: 55,
-            top: "折光沙丘",
+            top: "陨星阶梯",
             left: "无光裂隙",
             right: "星核祭坛",
             monster: [{ name: "星核祭司", lv: 56 }]
@@ -642,7 +645,6 @@ export const BseMap: BaseAreaData = {
             type: AreaType.冒险区,
             needLv: 56,
             right: "流星峡谷",
-            down: "坠星王座",
             monster: [{ name: "星砂游魂", lv: 57 }, { name: "星核祭司", lv: 58 }]
         },
         "星核祭坛": {
@@ -650,6 +652,7 @@ export const BseMap: BaseAreaData = {
             areaName: "星核祭坛",
             type: AreaType.冒险区,
             needLv: 56,
+            top: "折光沙丘",
             left: "流星峡谷",
             down: "坠星王座",
             monster: [{ name: "陨铁傀儡", lv: 58 }, { name: "星核祭司", lv: 58 }]
@@ -659,8 +662,7 @@ export const BseMap: BaseAreaData = {
             areaName: "坠星王座",
             type: AreaType.BOSS区,
             needLv: 60,
-            top: "无光裂隙",
-            right: "星核祭坛",
+            top: "星核祭坛",
             monster: [{ name: "坠星王", lv: 60 }]
         }
     }
