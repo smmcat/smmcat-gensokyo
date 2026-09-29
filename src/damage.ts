@@ -276,6 +276,8 @@ function giveDamage(self: BattleAttribute, goal: BattleAttribute, damage: Damage
     }
     // 受击后被动（hited）：实际扣血完成后触发，基于真实扣血量与扣血后状态
     damage.hpLoss = hpLoss
+    // 展示用伤害值改为实际扣血量（已扣除护盾抵挡部分），配合 （抵挡 N） 展示
+    damage.harm = hpLoss
     if (allPressiveList.length) {
         allPressiveList.forEach((passiveName) => {
             if (PassiveFn[passiveName].type == 'hited') {
