@@ -39,8 +39,10 @@ type TeamData = {
 export type BattleAttribute = {
     /** 唯一标识 */
     id: number
-    /** 阵容 */
+    /** 阵容（当前操控方，可能被魅惑/控制效果临时改变） */
     for?: 'self' | 'goal',
+    /** 原始归属方（永不改变，用于胜负判定与奖励结算，与 for 操控权分离） */
+    owner?: 'self' | 'goal',
     duties?: '前排' | '后排'
     /** 等级 */
     lv: number
@@ -91,7 +93,7 @@ export type BattleAttribute = {
     /** 滞留状态 */
     buff: { [keys: string]: { name: string, timer: number } },
     /** 持有技能 */
-    fn?: { name: string, prob: number }[],
+    fn?: { name: string, prob: number, lv?: number, num?: number }[],
     /** 被动技能 */
     passiveList?: string[],
     /** 套装被动 */
@@ -371,8 +373,8 @@ export const BattleData = {
             battle_monsterList.push(initBattleAttribute(Monster.getMonsterAttributeData(item.name, item.lv)))
         })
         const temp = {
-            self: battle_user.map((i) => ({ ...i, for: 'self' as 'self' | 'goal' })),
-            goal: battle_monsterList.map((i) => ({ ...i, for: 'goal' as 'self' | 'goal' })),
+            self: battle_user.map((i) => ({ ...i, for: 'self' as 'self' | 'goal', owner: 'self' as 'self' | 'goal' })),
+            goal: battle_monsterList.map((i) => ({ ...i, for: 'goal' as 'self' | 'goal', owner: 'goal' as 'self' | 'goal' })),
         }
         // 存档战斗
         playUser.forEach((userId) => {
@@ -437,8 +439,8 @@ export const BattleData = {
             battle_goal.push(initBattleAttribute(User.getUserAttributeByUserId(item.userId)))
         })
         const pkTemp = {
-            self: battle_self.map((i) => ({ ...i, for: 'self' as 'self' | 'goal' })),
-            goal: battle_goal.map((i) => ({ ...i, for: 'goal' as 'self' | 'goal' })),
+            self: battle_self.map((i) => ({ ...i, for: 'self' as 'self' | 'goal', owner: 'self' as 'self' | 'goal' })),
+            goal: battle_goal.map((i) => ({ ...i, for: 'goal' as 'self' | 'goal', owner: 'goal' as 'self' | 'goal' })),
             isPK: true
         }
         // 存档战斗
@@ -484,15 +486,18 @@ export const BattleData = {
         }
         return `[当前战况]\n我方阵容：\n` + selfTemp.join('\n') + '\n\n' + '敌方阵容：\n' + goalTemp.join('\n')
     },
-    /** 判断输赢 */
+    /** 判断输赢（按当前有效战力 for 判定：一方无活着且仍替己方作战的单位即战败；
+     *  被控制换边的单位算作对方战力，因此可正常结束，不会死锁） */
     playOver(team: { self: BattleAttribute[], goal: BattleAttribute[], isPK?: boolean }) {
-        const self = team.self.every((item) => item.hp <= 0)
-        const goal = team.goal.every((item) => item.hp <= 0)
-        if (self && goal) {
+        const all = [...team.self, ...team.goal]
+        const fightOf = (item: BattleAttribute) => item.for || item.owner
+        const selfFight = all.some((item) => fightOf(item) == 'self' && item.hp > 0)
+        const goalFight = all.some((item) => fightOf(item) == 'goal' && item.hp > 0)
+        if (!selfFight && !goalFight) {
             return { over: true, type: '平局', win: '' }
-        } else if (self) {
+        } else if (!selfFight) {
             return { over: true, type: team.isPK ? '防御方赢' : '敌方赢', win: 'goal' }
-        } else if (goal) {
+        } else if (!goalFight) {
             return { over: true, type: team.isPK ? '攻击方赢' : '我方赢', win: 'self' }
         }
         return { over: false, type: '未结束', win: '' }
@@ -597,7 +602,9 @@ export const BattleData = {
 
                 // 是否混乱
                 if (!agent.gain.chaos) {
-                    if (agent.type == '玩家' && agent.userId == session.userId) {
+                    // 持有 ⌈洗脑⌋ 印记的单位已被敌方接管，按怪物 AI 自动行动，不再由玩家手动操作
+                    const isControlled = !!agent.buff['洗脑']
+                    if (!isControlled && agent.type == '玩家' && agent.userId == session.userId) {
                         isMy = true;
                         let selectFn = '普攻'
                         if (!isNaN(Number(atkType))) {
@@ -614,24 +621,35 @@ export const BattleData = {
                         selectGoal = lifeGoalList.find((item) => item.name == select) ||
                             lifeGoalList[Math.floor(Math.random() * lifeGoalList.length)]
                     }
-                    // 其他玩家操作
-                    else if (agent.type == '玩家') {
+                    // 其他玩家（队伍中由 AI 代打）操作：
+                    // PvE 打怪时仅操作员(队长)可释放技能，AI 队友只普攻；PK 时双方 AI 玩家可自由出招
+                    else if (!isControlled && agent.type == '玩家') {
                         selectGoal = lifeGoalList[Math.floor(Math.random() * lifeGoalList.length)]
+                        funType = currentBattle.isPK ? decideUserAction(agent) : '普攻'
                     }
-                    // 怪物操作
+                    // 怪物 / 被控制单位 操作
                     else {
-                        // 优先攻击前排
-                        const fistGoal = lifeGoalList.filter((item) => item.duties == '前排')
-                        if (!fistGoal.length) {
-                            selectGoal = lifeGoalList[Math.floor(Math.random() * lifeGoalList.length)]
+                        // 优先攻击持有 ⌈威压⌋ 印记的目标
+                        const imprintGoal = lifeGoalList.filter((item) => item.expand?.['coercive-pressure']?.val > 0)
+                        if (imprintGoal.length) {
+                            selectGoal = imprintGoal[Math.floor(Math.random() * imprintGoal.length)]
                         } else {
-                            selectGoal = fistGoal[Math.floor(Math.random() * fistGoal.length)]
+                            // 优先攻击前排
+                            const fistGoal = lifeGoalList.filter((item) => item.duties == '前排')
+                            if (!fistGoal.length) {
+                                selectGoal = lifeGoalList[Math.floor(Math.random() * lifeGoalList.length)]
+                            } else {
+                                selectGoal = fistGoal[Math.floor(Math.random() * fistGoal.length)]
+                            }
                         }
 
-                        // 概率释放技能
-                        if (random(0, 10) < 4 && agent.fn?.length) {
-                            funType = getSkillFn(agent.fn as { name: string; prob: number; }[])
+                        // 出招决策：被 AI 接管的玩家走 decideUserAction，怪物走 decideMonsterAction
+                        const action = agent.type == '玩家' ? decideUserAction(agent) : decideMonsterAction(agent)
+                        if (!action) {
+                            msgList.push(`${getLineupName(agent)} 没有可执行的行动，跳过了本回合。`)
+                            continue
                         }
+                        funType = action
                     }
                 } else {
                     const fliteMyList = allAgentList.filter((item) => item.id !== agent.id && item.hp > 0)
@@ -660,14 +678,22 @@ export const BattleData = {
                             await session.send(`该技能达到本局最大使用次数，已无法在本局释放。`)
                             noralAtk()
                         } else {
-                            if (isMy) {
-                                useSkillFn.prob--
-                                UserSkill.userSkillTemp[agent.userId].activeSkill[useSkillFn.name].proficient++
-                                if (useSkillFn.prob == 0) {
-                                    await session.send(`${agent.name}(你)：${useSkillFn.name}技能次数已用完`)
-                                } else {
-                                    await session.send(`${agent.name}(你)：${useSkillFn.name}技能剩余使用次数：${useSkillFn.prob}次`)
+                            // 玩家（手动 / 被 AI 接管）：prob 为本局剩余使用次数，释放后扣减
+                            if (agent.type == '玩家' && useSkillFn) {
+                                if (useSkillFn.prob > 0) useSkillFn.prob--
+                                if (isMy) {
+                                    UserSkill.userSkillTemp[agent.userId].activeSkill[useSkillFn.name].proficient++
+                                    if (useSkillFn.prob == 0) {
+                                        await session.send(`${agent.name}(你)：${useSkillFn.name}技能次数已用完`)
+                                    } else {
+                                        await session.send(`${agent.name}(你)：${useSkillFn.name}技能剩余使用次数：${useSkillFn.prob}次`)
+                                    }
                                 }
+                            }
+                            // 怪物：扣减剩余使用次数 num（-1 为无限）
+                            if (agent.type == '怪物' && useSkillFn) {
+                                const n = useSkillFn.num ?? -1
+                                if (n !== -1) useSkillFn.num = n - 1
                             }
                             // 是否为(治疗|增益)技能 特殊处理
                             let _selectGoal = selectGoal
@@ -681,7 +707,7 @@ export const BattleData = {
                                 agent.mp -= selectFn.mp
                                 let isNext = false
                                 const fnMsg = selectFn.fn({ self: agent, goal: _selectGoal },
-                                    { selfList: lifeSelfList, goalList: lifeGoalList }, (val) => {
+                                    { selfList: lifeSelfList, goalList: lifeGoalList, selfMaster: currentBattle.self, goalMaster: currentBattle.goal }, (val) => {
                                         switch (val.type) {
                                             case SkillType.伤害技:
                                                 val.target.map((goal) => {
@@ -770,8 +796,11 @@ export const BattleData = {
             await session.send(msgTemp)
         }
         // 同步状态
+        // 战败方（按原始归属 owner）：即使单位因被【威压】控制而仍存活，也跟随所属阵营一并战败（判死）
+        const loseSide = overInfo.win == 'self' ? 'goal' : overInfo.win == 'goal' ? 'self' : ''
         const aynchronize = (agent: BattleAttribute) => {
-            User.userTempData[agent.userId].hp = agent.hp > 0 ? agent.hp : 0
+            const isLoser = !!loseSide && (agent.owner || agent.for) == loseSide
+            User.userTempData[agent.userId].hp = isLoser ? 0 : (agent.hp > 0 ? agent.hp : 0)
             User.userTempData[agent.userId].mp = agent.mp
             if (User.userTempData[agent.userId].hp <= 0) {
                 User.userTempData[agent.userId].isDie = true
@@ -783,7 +812,7 @@ export const BattleData = {
                 await session.send('攻击方获得20EXP、5货币')
                 for (const agent of allList) {
                     aynchronize(agent)
-                    if (agent.for == 'self') {
+                    if ((agent.owner || agent.for) == 'self') {
                         await User.checkDailyPpReset(agent.userId)
                         if (User.userTempData[agent.userId].pp < 2) {
                             await session.send(isTeam ? `${agent.name} 活力值低，本次无奖励` : `${agent.name}：活力值不足，无法领取奖励！`)
@@ -798,7 +827,7 @@ export const BattleData = {
                 await session.send('防御方获得20EXP、5货币')
                 for (const agent of allList) {
                     aynchronize(agent)
-                    if (agent.for == 'goal') {
+                    if ((agent.owner || agent.for) == 'goal') {
                         await User.checkDailyPpReset(agent.userId)
                         if (User.userTempData[agent.userId].pp < 2) {
                             await session.send(isTeam ? `${agent.name} 活力值低，本次无奖励` : `${agent.name}：活力值不足，无法领取奖励！`)
@@ -812,9 +841,10 @@ export const BattleData = {
             }
         } else {
             const resMsg = []
-            for (const agent of selfList) {
+            // 遍历全部玩家（含被控制换边到 goal 的玩家），确保状态都被同步；奖励仅发给归属方 owner=='self' 的胜者
+            for (const agent of allList) {
                 aynchronize(agent)
-                if (overInfo.win == 'self') {
+                if (overInfo.win == 'self' && (agent.owner || agent.for) == 'self') {
                     await User.checkDailyPpReset(agent.userId)
                     if (User.userTempData[agent.userId].pp < 2) {
                         resMsg.push(isTeam ? `${agent.name} 活力值低，本次无奖励` : `${agent.name}：活力值不足（剩余${User.userTempData[agent.userId].pp}），无法领取奖励！每日0点重置活力值。`)
@@ -887,6 +917,58 @@ export function getSkillFn(fnList: { name: string; prob: number }[]): string {
         }
     }
     return fnList[fnList.length - 1].name;
+}
+
+/**
+ * 怪物出招决策：依据自身当前战斗数据与 fn 配置决定本回合做什么。
+ * 过滤条件：技能存在、等级达标、剩余次数足够(num==-1为无限)、MP 足够；
+ * 过滤后按 prob 加权随机选择一项。若没有任何条件满足，则返回 null（本回合不做任何操作）。
+ */
+export function decideMonsterAction(agent: BattleAttribute): string | null {
+    const list = agent.fn || []
+    if (!list.length) return null
+    const eligible = list.filter((item) => {
+        // 普攻不在 skillFn 中，单独处理：始终可释放（受剩余次数限制）
+        const isNormal = item.name == '普攻'
+        const skill = skillFn[item.name]
+        if (!isNormal && !skill) return false
+        // 等级要求
+        if ((agent.lv || 1) < (item.lv ?? (skill?.lv ?? 1))) return false
+        // 剩余次数
+        const num = item.num ?? -1
+        if (num !== -1 && num <= 0) return false
+        // MP 是否足够
+        if (!isNormal && skill.mp > 0 && (agent.mp || 0) < skill.mp) return false
+        return true
+    })
+    if (!eligible.length) return null
+    return getSkillFn(eligible as { name: string; prob: number }[])
+}
+
+/**
+ * 玩家被 AI 接管时的出招决策（被「洗脑」加入敌方、或 PK 中由 AI 代打的玩家）。
+ * 与怪物的差异：玩家 fn 里 prob 表示「本局剩余使用次数(useTime)」，且不含「普攻」。
+ * 规则：先以 50% 概率判定是否释放技能；若是则在「可用技能」中按权重随机选一个，否则普攻。
+ * 至少返回「普攻」，不会返回 null。
+ */
+export function decideUserAction(agent: BattleAttribute): string {
+    const list = agent.fn || []
+    const eligible = list.filter((item) => {
+        const skill = skillFn[item.name]
+        if (!skill) return false
+        // 等级要求
+        if ((agent.lv || 1) < (item.lv ?? skill.lv)) return false
+        // 剩余使用次数（玩家以 prob 计）
+        if ((item.prob ?? 0) <= 0) return false
+        // MP 是否足够
+        if (skill.mp > 0 && (agent.mp || 0) < skill.mp) return false
+        return true
+    })
+    // 50% 概率释放技能，否则普攻
+    if (eligible.length && Math.random() < 0.5) {
+        return getSkillFn(eligible as { name: string; prob: number }[])
+    }
+    return '普攻'
 }
 
 /** 初始化战斗属性-用户 */
@@ -996,9 +1078,19 @@ function initBattleAttribute(data: UserBaseAttribute | MonsterBaseAttribute): Ba
             buff: {},
             passiveList: monsterData.passiveList || [],
             equipmentPassiveList: [],
-            fn: monsterData.fn ? JSON.parse(JSON.stringify(monsterData.fn)).filter((item: { name: string, prob: number }) => {
-                return skillFn[item.name] && monsterData.lv >= skillFn[item.name].lv
-            }) : [],
+            fn: (monsterData.fn || [])
+                // 归一化：补齐 lv / num 默认值（普攻已由每个怪物在 initMonster.ts 中自行配置）
+                .map((item) => ({
+                    name: item.name,
+                    prob: item.prob,
+                    lv: item.lv ?? (skillFn[item.name]?.lv ?? 1),
+                    num: item.num ?? -1
+                }))
+                .filter((item) => {
+                    // 普攻不在 skillFn，直接保留；其余技能需存在且等级达标
+                    if (item.name == '普攻') return true
+                    return skillFn[item.name] && (monsterData.lv ?? 1) >= item.lv
+                }),
             suitMap: {},
             expand: {}
         } as BattleAttribute

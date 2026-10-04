@@ -280,6 +280,51 @@ export const equipmentData: { [keys: string]: AnyEquipmentItem } = {
         star: 5,
         mainUpType: 'reduction',
         mainAttr: 0.08
+    },
+    "蕾米莉亚之枪": {
+        type: Equipment.武器,
+        name: "蕾米莉亚之枪",
+        suit: "绯红威严",
+        info: "红魔馆主人惯用的骑枪，枪尖凝着不散的绯红杀意。(2件套)战斗前提高 20% 生命值上限。(4件套)战斗时获得 鸣屋 被动",
+        star: 5,
+        mainUpType: 'atk',
+        mainAttr: 70
+    },
+    "蕾米莉亚礼帽": {
+        type: Equipment.头盔,
+        name: "蕾米莉亚礼帽",
+        suit: "绯红威严",
+        info: "缀着红色缎带的粉色礼帽，是红魔馆大小姐仪态的象征。(2件套)战斗前提高 20% 生命值上限。(4件套)战斗时获得 鸣屋 被动",
+        star: 5,
+        mainUpType: 'csr',
+        mainAttr: 120
+    },
+    "蕾米莉亚洋装": {
+        type: Equipment.护甲,
+        name: "蕾米莉亚洋装",
+        suit: "绯红威严",
+        info: "红魔馆制式的粉色哥特洋装，端庄之下暗藏着领主的威压。(2件套)战斗前提高 20% 生命值上限。(4件套)战斗时获得 鸣屋 被动",
+        star: 5,
+        mainUpType: 'maxHp',
+        mainAttr: 620
+    },
+    "蕾米莉亚红晶": {
+        type: Equipment.项链,
+        name: "蕾米莉亚红晶",
+        suit: "绯红威严",
+        info: "胸前垂落的绯红水晶，据说是红魔馆深处凝聚的血之精华。(2件套)战斗前提高 20% 生命值上限。(4件套)战斗时获得 鸣屋 被动",
+        star: 5,
+        mainUpType: 'chr',
+        mainAttr: 190
+    },
+    "蕾米莉亚披风": {
+        type: Equipment.披风,
+        name: "蕾米莉亚披风",
+        suit: "绯红威严",
+        info: "在红魔馆走廊间飘荡的红色披风，所过之处皆俯首低眉。(2件套)战斗前提高 20% 生命值上限。(4件套)战斗时获得 鸣屋 被动",
+        star: 5,
+        mainUpType: 'reduction',
+        mainAttr: 0.09
     }
 }
 
@@ -340,6 +385,16 @@ export const SuitDict: SuitDictList = {
             agent.shield = Math.min(agent.maxHp, (agent.shield || 0) + Math.floor(agent.maxHp * 0.02))
         },
         info: '藤原妹红散落的随身物件所制。(2件套)战斗前增加 10% 暴击率。(4件套)战斗前获得基于最大生命值 2% 的护盾'
+    },
+    "绯红威严": {
+        twoPiece(agent: BattleAttribute) {
+            agent.maxHp += Math.floor(agent.maxHp * 0.2)
+        },
+        fourPiece(agent: BattleAttribute) {
+            agent.equipmentPassiveList = agent.equipmentPassiveList.filter(i => i !== '鸣屋')
+            agent.equipmentPassiveList.push('鸣屋')
+        },
+        info: '红魔馆主人蕾米莉亚的随身衣物所制，端庄之下透着不容置疑的威压。(2件套)战斗前提高 20% 生命值上限。(4件套)战斗时获得 鸣屋 被动'
     }
 }
 

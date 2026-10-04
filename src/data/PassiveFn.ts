@@ -177,5 +177,19 @@ export const PassiveFn: PassiveDict = {
             }
             return ``
         }
+    },
+    "鸣屋": {
+        name: "鸣屋",
+        info: "受到攻击后，有 10% 概率使攻击者陷入晕眩 1 回合",
+        type: 'hited',
+        lv: 1,
+        damageFn: function (config) {
+            if ((config.hpLoss || 0) > 0 && random(0, 100) < 10) {
+                const attacker = config.linkAgent.self
+                giveBuff(attacker, { name: "晕眩", timer: 1 })
+                return `‣ ${getLineupName(config.linkAgent.goal)}触发被动 ¦${this.name}¦ ${getLineupName(attacker)}陷入晕眩`
+            }
+            return ``
+        }
     }
 }

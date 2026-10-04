@@ -299,5 +299,16 @@ export const propsData: propsTemplateData = {
             const equipment = await UserEquipment.getEquipment(session.userId, { name: equipmentList[Math.floor(equipmentList.length * Math.random())] })
             await session.send(`恭喜获得：${equipment.name}[${equipment.fid}]`)
         }
+    },
+    "蕾米莉亚装备礼盒": {
+        name: "蕾米莉亚装备礼盒",
+        type: PropType.礼包类,
+        info: '通过该道具可在 "蕾米莉亚之枪、蕾米莉亚礼帽、蕾米莉亚洋装、蕾米莉亚红晶、蕾米莉亚披风" 以下装备中随机获得一件。',
+        price: 80,
+        fn: async function (session) {
+            const equipmentList = ["蕾米莉亚之枪", "蕾米莉亚礼帽", "蕾米莉亚洋装", "蕾米莉亚红晶", "蕾米莉亚披风"]
+            const equipment = await UserEquipment.getEquipment(session.userId, { name: equipmentList[Math.floor(equipmentList.length * Math.random())] })
+            await session.send(`恭喜获得：${equipment.name}[${equipment.fid}]`)
+        }
     }
 }

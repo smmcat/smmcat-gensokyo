@@ -337,7 +337,7 @@ export const BseMap: BaseAreaData = {
             type: AreaType.冒险区,
             needLv: 1,
             top: "咆哮营地",
-            monster: [{ name: "星见雅", lv: 35 }, { name: "藤原妹红", lv: 30 }, { name: "蓬莱山辉夜", lv: 30 }]
+            monster: [{ name: "星见雅", lv: 35 }, { name: "藤原妹红", lv: 30 }, { name: "蓬莱山辉夜", lv: 30 }, { name: "蕾米莉亚", lv: 35 }]
         }
     },
     3: {

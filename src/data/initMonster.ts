@@ -64,8 +64,12 @@ export type MonsterBaseAttribute = {
     fn?: {
         /** 技能名 */
         name: string,
-        /** 触发概率 */
-        prob: number
+        /** 出招权重（概率） */
+        prob: number,
+        /** 释放等级要求（默认取技能自身等级） */
+        lv?: number,
+        /** 剩余使用次数（-1 表示无上限） */
+        num?: number
     }[]
     /** 被动技能 */
     passiveList?: string[]
@@ -102,7 +106,7 @@ export const monsterData: MonsterTempData = {
         giveProps: [
             { name: '红药', val: 3, radomVal: 30 }
         ],
-        fn: [{ name: '垂死挣扎', prob: 1 }],
+        fn: [{ name: '垂死挣扎', prob: 1 }, { name: '普攻', prob: 2, lv: 1, num: -1 }],
         passiveList: []
     },
     "小蜘蛛": {
@@ -127,6 +131,7 @@ export const monsterData: MonsterTempData = {
         giveProps: [
             { name: '蓝药', val: 3, radomVal: 30 }
         ],
+        fn: [{ name: '普攻', prob: 5, lv: 1, num: -1 }],
         passiveList: []
     },
     "dora": {
@@ -154,7 +159,7 @@ export const monsterData: MonsterTempData = {
             { name: '技能书-治愈之光', val: 1, radomVal: 10 },
             { name: '新手装备礼盒', val: 1, radomVal: 30 }
         ],
-        fn: [{ name: '治愈之光', prob: 1 }],
+        fn: [{ name: '治愈之光', prob: 1, num: 3 }, { name: '普攻', prob: 5, lv: 1, num: -1 }],
         passiveList: []
     },
     "琪露诺": {
@@ -176,6 +181,7 @@ export const monsterData: MonsterTempData = {
         speed: 4,
         giveExp: 15,
         giveMonetary: 3,
+        fn: [{ name: '普攻', prob: 5, lv: 1, num: -1 }],
         passiveList: [],
         giveProps: [
             { name: '初级复活卷轴', val: 1, radomVal: 30 },
@@ -201,6 +207,7 @@ export const monsterData: MonsterTempData = {
         speed: 5,
         giveExp: 15,
         giveMonetary: 3,
+        fn: [{ name: '普攻', prob: 5, lv: 1, num: -1 }],
         passiveList: [],
         giveProps: [
             { name: '初级复活卷轴', val: 1, radomVal: 30 },
@@ -231,7 +238,7 @@ export const monsterData: MonsterTempData = {
             { name: '初级复活卷轴', val: 1, radomVal: 30 },
             { name: '新手装备礼盒', val: 2, radomVal: 70 }
         ],
-        fn: [{ name: '初级治愈', prob: 3 }, { name: '水炮', prob: 1 }]
+        fn: [{ name: '初级治愈', prob: 3 }, { name: '水炮', prob: 1 }, { name: '普攻', prob: 5, lv: 1, num: -1 }]
     },
     "绿毒蛇": {
         name: "绿毒蛇",
@@ -257,7 +264,7 @@ export const monsterData: MonsterTempData = {
             { name: '初级复活卷轴', val: 1, radomVal: 30 }, { name: '技能书-毒之牙', val: 1, radomVal: 10 },
             { name: '新手装备礼盒', val: 1, radomVal: 70 }
         ],
-        fn: [{ name: '毒之牙', prob: 1 }]
+        fn: [{ name: '毒之牙', prob: 1 }, { name: '普攻', prob: 5, lv: 1, num: -1 }]
     },
     "古明地觉": {
         name: "古明地觉",
@@ -283,7 +290,7 @@ export const monsterData: MonsterTempData = {
             { name: '初级复活卷轴', val: 1, radomVal: 20 }, { name: '技能书-恐怖催眠术', val: 1, radomVal: 10 },
             { name: '新手装备礼盒', val: 2, radomVal: 70 }
         ],
-        fn: [{ name: '恐怖催眠术', prob: 1 }, { name: "恐怖的回忆", prob: 2 }]
+        fn: [{ name: '恐怖催眠术', prob: 1 }, { name: "恐怖的回忆", prob: 2 }, { name: '普攻', prob: 5, lv: 1, num: -1 }]
     },
     "古明地恋": {
         name: "古明地恋",
@@ -309,7 +316,7 @@ export const monsterData: MonsterTempData = {
             { name: '大红药', val: 2, radomVal: 50 }, { name: '技能书-初级驱散', val: 1, radomVal: 10 },
             { name: '新手装备礼盒', val: 1, radomVal: 30 }
         ],
-        fn: [{ name: '紧闭的恋之瞳', prob: 3 }, { name: "初级驱散", prob: 1 }, { name: '无意识行动', prob: 2 }]
+        fn: [{ name: '紧闭的恋之瞳', prob: 3 }, { name: "初级驱散", prob: 1 }, { name: '无意识行动', prob: 2 }, { name: '普攻', prob: 5, lv: 1, num: -1 }]
     },
     "白洲梓": {
         name: "白洲梓",
@@ -335,7 +342,7 @@ export const monsterData: MonsterTempData = {
             { name: '大红药', val: 2, radomVal: 20 }, { name: '初级复活卷轴', val: 1, radomVal: 50 },
             { name: '新手装备礼盒', val: 1, radomVal: 30 }
         ],
-        fn: [{ name: '瓦尼瓦尼', prob: 1 }]
+        fn: [{ name: '瓦尼瓦尼', prob: 1 }, { name: '普攻', prob: 5, lv: 1, num: -1 }]
     },
     "星见雅": {
         name: "星见雅",
@@ -364,7 +371,7 @@ export const monsterData: MonsterTempData = {
             { name: '技能书-霜月架势', val: 1, radomVal: 10 },
             { name: '新手装备礼盒', val: 3, radomVal: 80 }
         ],
-        fn: [{ name: '飞雪', prob: 3 }, { name: '霜月架势', prob: 1 }]
+        fn: [{ name: '飞雪', prob: 3, num: 8 }, { name: '霜月架势', prob: 1, num: 2 }, { name: '普攻', prob: 5, lv: 1, num: -1 }]
     },
     "kemomimi": {
         name: "kemomimi",
@@ -387,7 +394,7 @@ export const monsterData: MonsterTempData = {
         giveMonetary: 1,
         passiveList: [],
         giveProps: [],
-        fn: [{ name: "跟你爆了", prob: 1 }]
+        fn: [{ name: "跟你爆了", prob: 1 }, { name: '普攻', prob: 3, lv: 1, num: -1 }]
     },
     "菲比啾比": {
         name: "菲比啾比",
@@ -413,7 +420,7 @@ export const monsterData: MonsterTempData = {
             { name: '大红药', val: 2, radomVal: 20 },
             { name: '中级复活卷轴', val: 1, radomVal: 50 }
         ],
-        fn: [{ name: "夏弥尔之星", prob: 1 }, { name: '初级治愈', prob: 3 }]
+        fn: [{ name: "夏弥尔之星", prob: 1 }, { name: '初级治愈', prob: 3 }, { name: '普攻', prob: 5, lv: 1, num: -1 }]
     },
     "弗糯糯": {
         name: "弗糯糯",
@@ -439,7 +446,7 @@ export const monsterData: MonsterTempData = {
             { name: '大红药', val: 2, radomVal: 20 },
             { name: '中级复活卷轴', val: 1, radomVal: 50 }
         ],
-        fn: [{ name: "往日深渊的圆舞曲", prob: 1 }, { name: '初级治愈', prob: 3 }]
+        fn: [{ name: "往日深渊的圆舞曲", prob: 1 }, { name: '初级治愈', prob: 3 }, { name: '普攻', prob: 5, lv: 1, num: -1 }]
     },
     "雾灯巡卫": {
         name: "雾灯巡卫",
@@ -465,7 +472,7 @@ export const monsterData: MonsterTempData = {
             { name: '大红药', val: 2, radomVal: 25 },
             { name: '雾城装备礼盒', val: 1, radomVal: 12 }
         ],
-        fn: [{ name: "雾灯刺击", prob: 2 }, { name: '初级治愈', prob: 1 }]
+        fn: [{ name: "雾灯刺击", prob: 2 }, { name: '初级治愈', prob: 1 }, { name: '普攻', prob: 5, lv: 1, num: -1 }]
     },
     "街角魔偶": {
         name: "街角魔偶",
@@ -491,7 +498,7 @@ export const monsterData: MonsterTempData = {
             { name: '大红药', val: 2, radomVal: 25 },
             { name: '雾城装备礼盒', val: 1, radomVal: 14 }
         ],
-        fn: [{ name: "齿轮重碾", prob: 2 }]
+        fn: [{ name: "齿轮重碾", prob: 2 }, { name: '普攻', prob: 5, lv: 1, num: -1 }]
     },
     "齿轮守墓人": {
         name: "齿轮守墓人",
@@ -517,7 +524,7 @@ export const monsterData: MonsterTempData = {
             { name: '中级复活卷轴', val: 1, radomVal: 18 },
             { name: '雾城装备礼盒', val: 1, radomVal: 16 }
         ],
-        fn: [{ name: "墓钟回响", prob: 2 }]
+        fn: [{ name: "墓钟回响", prob: 2 }, { name: '普攻', prob: 5, lv: 1, num: -1 }]
     },
     "雨巷妖精": {
         name: "雨巷妖精",
@@ -543,7 +550,7 @@ export const monsterData: MonsterTempData = {
             { name: '大红药', val: 2, radomVal: 25 },
             { name: '雾城装备礼盒', val: 1, radomVal: 14 }
         ],
-        fn: [{ name: "雨巷急袭", prob: 2 }, { name: '治愈之光', prob: 1 }]
+        fn: [{ name: "雨巷急袭", prob: 2 }, { name: '治愈之光', prob: 1 }, { name: '普攻', prob: 5, lv: 1, num: -1 }]
     },
     "兹穆弗特钟卫": {
         name: "兹穆弗特钟卫",
@@ -569,7 +576,7 @@ export const monsterData: MonsterTempData = {
             { name: '中级复活卷轴', val: 1, radomVal: 30 },
             { name: '雾城装备礼盒', val: 2, radomVal: 70 }
         ],
-        fn: [{ name: "雾钟审判", prob: 3 }, { name: "墓钟回响", prob: 1 }]
+        fn: [{ name: "雾钟审判", prob: 3 }, { name: "墓钟回响", prob: 1 }, { name: '普攻', prob: 5, lv: 1, num: -1 }]
     },
     "月湾水灵": {
         name: "月湾水灵",
@@ -595,7 +602,7 @@ export const monsterData: MonsterTempData = {
             { name: '大红药', val: 3, radomVal: 30 },
             { name: '月潮装备礼盒', val: 1, radomVal: 14 }
         ],
-        fn: [{ name: "月湾涌流", prob: 2 }, { name: "初级治愈", prob: 1 }]
+        fn: [{ name: "月湾涌流", prob: 2 }, { name: "初级治愈", prob: 1 }, { name: '普攻', prob: 5, lv: 1, num: -1 }]
     },
     "潮汐歌姬": {
         name: "潮汐歌姬",
@@ -621,7 +628,7 @@ export const monsterData: MonsterTempData = {
             { name: '大红药', val: 3, radomVal: 30 },
             { name: '月潮装备礼盒', val: 1, radomVal: 15 }
         ],
-        fn: [{ name: "潮歌魅影", prob: 2 }, { name: "治愈之光", prob: 1 }]
+        fn: [{ name: "潮歌魅影", prob: 2 }, { name: "治愈之光", prob: 1 }, { name: '普攻', prob: 5, lv: 1, num: -1 }]
     },
     "沉船骑士": {
         name: "沉船骑士",
@@ -647,7 +654,7 @@ export const monsterData: MonsterTempData = {
             { name: '中级复活卷轴', val: 1, radomVal: 20 },
             { name: '月潮装备礼盒', val: 1, radomVal: 16 }
         ],
-        fn: [{ name: "锈潮斩", prob: 2 }]
+        fn: [{ name: "锈潮斩", prob: 2 }, { name: '普攻', prob: 5, lv: 1, num: -1 }]
     },
     "月蚀灯守": {
         name: "月蚀灯守",
@@ -673,7 +680,7 @@ export const monsterData: MonsterTempData = {
             { name: '中级复活卷轴', val: 1, radomVal: 35 },
             { name: '月潮装备礼盒', val: 2, radomVal: 70 }
         ],
-        fn: [{ name: "月蚀潮汐", prob: 3 }, { name: "潮歌魅影", prob: 1 }]
+        fn: [{ name: "月蚀潮汐", prob: 3 }, { name: "潮歌魅影", prob: 1 }, { name: '普攻', prob: 5, lv: 1, num: -1 }]
     },
     "星砂游魂": {
         name: "星砂游魂",
@@ -699,7 +706,7 @@ export const monsterData: MonsterTempData = {
             { name: '大红药', val: 4, radomVal: 35 },
             { name: '星砂装备礼盒', val: 1, radomVal: 14 }
         ],
-        fn: [{ name: "星砂闪击", prob: 2 }, { name: "治愈之光", prob: 1 }]
+        fn: [{ name: "星砂闪击", prob: 2 }, { name: "治愈之光", prob: 1 }, { name: '普攻', prob: 5, lv: 1, num: -1 }]
     },
     "陨铁傀儡": {
         name: "陨铁傀儡",
@@ -725,7 +732,7 @@ export const monsterData: MonsterTempData = {
             { name: '中级复活卷轴', val: 1, radomVal: 22 },
             { name: '星砂装备礼盒', val: 1, radomVal: 16 }
         ],
-        fn: [{ name: "陨铁坠击", prob: 2 }]
+        fn: [{ name: "陨铁坠击", prob: 2 }, { name: '普攻', prob: 5, lv: 1, num: -1 }]
     },
     "星核祭司": {
         name: "星核祭司",
@@ -751,7 +758,7 @@ export const monsterData: MonsterTempData = {
             { name: '大红药', val: 4, radomVal: 35 },
             { name: '星砂装备礼盒', val: 1, radomVal: 18 }
         ],
-        fn: [{ name: "星核灼光", prob: 2 }, { name: "初级治愈", prob: 1 }]
+        fn: [{ name: "星核灼光", prob: 2 }, { name: "初级治愈", prob: 1 }, { name: '普攻', prob: 5, lv: 1, num: -1 }]
     },
     "坠星王": {
         name: "坠星王",
@@ -777,7 +784,7 @@ export const monsterData: MonsterTempData = {
             { name: '中级复活卷轴', val: 1, radomVal: 45 },
             { name: '星砂装备礼盒', val: 2, radomVal: 80 }
         ],
-        fn: [{ name: "坠星裁决", prob: 3 }, { name: "星核灼光", prob: 1 }]
+        fn: [{ name: "坠星裁决", prob: 3 }, { name: "星核灼光", prob: 1 }, { name: '普攻', prob: 5, lv: 1, num: -1 }]
     },
     "藤原妹红": {
         name: "藤原妹红",
@@ -805,6 +812,38 @@ export const monsterData: MonsterTempData = {
             { name: '中级复活卷轴', val: 1, radomVal: 35 },
             { name: '妹红装备礼盒', val: 2, radomVal: 70 }
         ],
-        fn: [{ name: "不死鸟重生", prob: 2 }]
+        fn: [{ name: "不死鸟重生", prob: 2, num: 2 }, { name: '普攻', prob: 5, lv: 1, num: -1 }]
+    },
+    "蕾米莉亚": {
+        name: "蕾米莉亚",
+        type: MonsterOccupation.BOSS,
+        info: '红魔馆的现任主人，拥有「命运」与「操控命运程度」的吸血鬼大小姐。外表端庄威严，实则任性而高傲，举手投足间皆带着不容忤逆的领主威压。',
+        pic: "http://smmcat.cn/run/gensokyo/蕾米莉亚.png",
+        hp: 140,
+        maxHp: 140,
+        mp: 60,
+        maxMp: 60,
+        atk: 36,
+        def: 6,
+        chr: 120,
+        csr: 0,
+        evasion: 120,
+        hit: 1300,
+        ghd: 1.5,
+        speed: 5,
+        shield: 15,
+        giveExp: 22,
+        giveMonetary: 5,
+        passiveList: [],
+        giveProps: [
+            { name: '中级万能药', val: 2, radomVal: 40 },
+            { name: '中级复活卷轴', val: 1, radomVal: 35 },
+            { name: '蕾米莉亚装备礼盒', val: 1, radomVal: 70 }
+        ],
+        fn: [
+            { name: '威严满满', prob: 1, lv: 1, num: 6 },
+            { name: '治愈之光', prob: 1, lv: 1, num: 3 },
+            { name: '普攻', prob: 3, lv: 1, num: -1 }
+        ]
     },
 }

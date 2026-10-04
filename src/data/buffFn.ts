@@ -80,6 +80,11 @@ interface BuffConfig<T extends BuffType = BuffType> {
         agent: BattleAttribute,
         cb?: (val: Extract<BuffItemParams, { type: T }>) => void
     ): string;
+    /** 被清除前触发（clearBuff / clearImprint / 到期清除时，在删除前调用） */
+    beforDisperseFn?(
+        agent: BattleAttribute,
+        cb?: (val?: any) => void
+    ): void;
 }
 
 type BuffFnList = {
@@ -252,6 +257,60 @@ export const BuffFn: BuffFnList = {
             })
         }
     },
+    "威压": {
+        name: "威压",
+        type: BuffType.印记,
+        info: `威压印记：攻击力下降10%，暴击率下降20%`,
+        key: 'coercive-pressure',
+        initFn: function (agent) {
+            if (!agent.expand['coercive-pressure']) agent.expand['coercive-pressure'] = { fromId: 0, val: 0 }
+            agent.expand['coercive-pressure'].val++
+        },
+        fn: function (agent, fn?) {
+            const stack = (agent.expand['coercive-pressure'] && agent.expand['coercive-pressure'].val) || 0
+            const downAtk = Math.floor(agent.atk * 0.1)
+            const downChr = Math.floor(agent.chr * 0.2)
+            fn && fn({
+                type: BuffType.印记,
+                key: 'coercive-pressure',
+                down: { atk: downAtk, chr: downChr },
+                data: {
+                    msg: `印记 ⌈威压⌋ 存在${stack}层，攻↓${downAtk}，暴击↓${downChr / 10}%`
+                }
+            })
+        }
+    },
+    "洗脑": {
+        name: "洗脑",
+        type: BuffType.印记,
+        info: "已被洗脑，作为敌方单位自动行动，被驱散或到期时回归原阵容",
+        key: 'brainwashing',
+        initFn: function (agent) {
+            if (!agent.expand['brainwashing']) agent.expand['brainwashing'] = { fromId: 0, val: 0 }
+            agent.expand['brainwashing'].val = 1
+        },
+        beforDisperseFn: function (agent) {
+            // 印记被清除前：将单位从当前所在主阵容移出，回归 owner 所属的原阵容
+            const data = agent.expand['brainwashing']
+            const selfMaster = data?.selfMaster
+            const goalMaster = data?.goalMaster
+            const ownerSide = agent.owner || agent.for
+            if (selfMaster && goalMaster) {
+                const inSelf = selfMaster.indexOf(agent) >= 0
+                const cur = inSelf ? selfMaster : goalMaster
+                const target = ownerSide == 'self' ? selfMaster : goalMaster
+                if (cur !== target) {
+                    const i = cur.indexOf(agent)
+                    if (i >= 0) cur.splice(i, 1)
+                    target.push(agent)
+                }
+                agent.for = ownerSide
+            }
+        },
+        fn: function (agent, fn?) {
+            fn && fn({ type: BuffType.印记, key: 'brainwashing', data: { msg: '印记 ⌈洗脑⌋：已被敌方操控' } })
+        }
+    },
     "引燃": {
         name: "引燃",
         type: BuffType.伤害,
@@ -320,6 +379,7 @@ export function clearBuff(agent: BattleAttribute, buff: { name: string }) {
     if (buffInfo.type == BuffType.印记) {
         return { err: true, msg: '清除失败，印记无法被驱除' }
     }
+    buffInfo.beforDisperseFn?.(agent)
     if (agent.buff[buff.name]) {
         delete agent.buff[buff.name]
         return { err: false, msg: `清除${buffInfo.name}成功！` }
@@ -333,6 +393,7 @@ export function clearImprint(agent: BattleAttribute, buff: { name: string }) {
     if (buffInfo.type !== BuffType.印记) {
         return { err: true, msg: '清除失败，非印记' }
     }
+    buffInfo.beforDisperseFn?.(agent)
     if (agent.buff[buff.name]) {
         delete agent.buff[buff.name]
         delete agent.expand[buffInfo.key]
@@ -460,7 +521,15 @@ export function settlementBuff(agent: BattleAttribute) {
                 break;
         }
         --agent.buff[item].timer
-        if (agent.buff[item].timer == 0) delete agent.buff[item]
+        if (agent.buff[item].timer == 0) {
+            // 到期清除前触发 beforDisperseFn（如 洗脑 需借此回归原阵容）
+            buffInfo.beforDisperseFn?.(agent)
+            // 印记到期需同步清除其 expand 数据，避免层数残留导致跨周期误叠加
+            if (buffInfo.type == BuffType.印记 && buffInfo.key) {
+                delete agent.expand[buffInfo.key]
+            }
+            delete agent.buff[item]
+        }
     })
     return msgList.length ? msgList.map(item => `» ${getLineupName(agent)}:${item}`).join('\n') : null
 }

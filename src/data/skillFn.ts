@@ -96,7 +96,7 @@ interface SkillConfig<T extends SkillType = SkillType> {
     /** 技能函数 */
     fn(
         agent: { self: BattleAttribute, goal: BattleAttribute },
-        agentList: { selfList: BattleAttribute[], goalList: BattleAttribute[] },
+        agentList: { selfList: BattleAttribute[], goalList: BattleAttribute[], selfMaster?: BattleAttribute[], goalMaster?: BattleAttribute[] },
         cb?: (val: Extract<SkillParams, { type: T }>) => void
     ): string;
 }
@@ -418,6 +418,67 @@ export const skillFn: SkillFn = {
                 return `${getLineupName(agent.self)}释放紧闭的恋之瞳，${getLineupName(agent.goal)}⌈咒⌋层达到3层，立即死亡!`
             }
             return `${getLineupName(agent.self)}释放紧闭的恋之瞳，${getLineupName(agent.goal)}⌈咒⌋层数${agent.goal.expand[key].val}层`
+        }
+    },
+    "威严满满": {
+        name: "威严满满",
+        type: SkillType.伤害技,
+        info: '[伤害技]对敌方单体造成攻击力50%的伤害，并附加 ⌈威压⌋ 印记（攻击力↓10%、暴击率↓20%，可被治疗驱散）。印记达到3层时，清除威压、附加持续99回合的⌈洗脑⌋印记并操控目标加入我方（以释放者为准）；被洗脑单位本场由AI自动行动，⌈洗脑⌋被驱散或到期时回归原阵容。',
+        lv: 1,
+        mp: 30,
+        useTime: 4,
+        fn: function (agent, agentList, fn?) {
+            const self = agent.self
+            const goal = agent.goal
+            // 造成 50% 攻击力伤害
+            const damageData = new Damage(agent).result({
+                before: (val) => {
+                    val.default_harm = Math.floor(val.default_harm * 0.5)
+                }
+            })
+            fn({
+                damage: damageData,
+                type: this.type,
+                target: [goal],
+                isNext: false
+            })
+            const baseMsg = `${getLineupName(self)} 释放威严满满，对 ${getLineupName(goal)} 造成 ${damageData.harm} 伤害。` + baseMoreDamage(damageData)
+
+            // 目标已被本次伤害击杀，不再附加印记与操控
+            if (goal.hp <= 0) return baseMsg
+
+            // 附加 威压 印记，记录释放者 id
+            if (!goal.expand['coercive-pressure']) {
+                goal.expand['coercive-pressure'] = { fromId: self.id, val: 0 }
+            } else {
+                goal.expand['coercive-pressure'].fromId = self.id
+            }
+            giveBuff(goal, { name: '威压', timer: 99 })
+            const stack = (goal.expand['coercive-pressure'] && goal.expand['coercive-pressure'].val) || 0
+
+            // 印记达到 3 层：清除 威压 印记，操控目标加入我方（以释放者所在阵营为准），并附加 洗脑 印记
+            if (stack >= 3) {
+                clearImprint(goal, { name: '威压' })
+                const casterFor = self.for
+                const enemyMaster = casterFor == 'self' ? agentList.goalMaster : agentList.selfMaster
+                const allyMaster = casterFor == 'self' ? agentList.selfMaster : agentList.goalMaster
+                if (enemyMaster && allyMaster) {
+                    const idx = enemyMaster.indexOf(goal)
+                    if (idx >= 0) enemyMaster.splice(idx, 1)
+                    goal.for = casterFor
+                    allyMaster.push(goal)
+                }
+                // 记录 洗脑 数据：释放者 id + 双方主阵容引用，供印记被消除时（beforDisperseFn）回归原阵容
+                goal.expand['brainwashing'] = {
+                    fromId: self.id,
+                    val: 0,
+                    selfMaster: agentList.selfMaster,
+                    goalMaster: agentList.goalMaster
+                }
+                giveBuff(goal, { name: '洗脑', timer: 99 })
+                return `${baseMsg} ${getLineupName(goal)} 的⌈威压⌋印记达到3层，被清除威压并附加⌈洗脑⌋，操控加入了 ${getLineupName(self)} 一方！`
+            }
+            return `${baseMsg} 被挂上 ⌈威压⌋ 印记（${stack}/3）`
         }
     },
     "无意识行动": {
