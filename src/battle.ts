@@ -678,34 +678,38 @@ export const BattleData = {
                             await session.send(`该技能达到本局最大使用次数，已无法在本局释放。`)
                             noralAtk()
                         } else {
-                            // 玩家（手动 / 被 AI 接管）：prob 为本局剩余使用次数，释放后扣减
-                            if (agent.type == '玩家' && useSkillFn) {
-                                if (useSkillFn.prob > 0) useSkillFn.prob--
-                                if (isMy) {
-                                    UserSkill.userSkillTemp[agent.userId].activeSkill[useSkillFn.name].proficient++
-                                    if (useSkillFn.prob == 0) {
-                                        await session.send(`${agent.name}(你)：${useSkillFn.name}技能次数已用完`)
-                                    } else {
-                                        await session.send(`${agent.name}(你)：${useSkillFn.name}技能剩余使用次数：${useSkillFn.prob}次`)
-                                    }
-                                }
-                            }
-                            // 怪物：扣减剩余使用次数 num（-1 为无限）
-                            if (agent.type == '怪物' && useSkillFn) {
-                                const n = useSkillFn.num ?? -1
-                                if (n !== -1) useSkillFn.num = n - 1
-                            }
                             // 是否为(治疗|增益)技能 特殊处理
                             let _selectGoal = selectGoal
                             if ([SkillType.治疗技, SkillType.增益技].includes(skillFn[funType].type)) {
                                 _selectGoal = lifeSelfList.find((item) => item.name == select) || agent
                             }
                             const selectFn = skillFn[funType]
-                            let buffmsg = ''
-                            // 如果MP消耗足够
-                            if (selectFn.mp == 0 || agent.mp - selectFn.mp >= 0) {
+                            // MP 不足：释放失败，不扣次数，直接普攻
+                            if (selectFn.mp != 0 && agent.mp - selectFn.mp < 0) {
+                                isMy && await session.send(`MP不足，释放失败！`)
+                                noralAtk()
+                            } else {
+                                // 扣减使用次数（成功释放后才扣；若技能内部判定失败会在下面返还）
+                                if (agent.type == '玩家' && useSkillFn) {
+                                    if (useSkillFn.prob > 0) useSkillFn.prob--
+                                    if (isMy) {
+                                        UserSkill.userSkillTemp[agent.userId].activeSkill[useSkillFn.name].proficient++
+                                        if (useSkillFn.prob == 0) {
+                                            await session.send(`${agent.name}(你)：${useSkillFn.name}技能次数已用完`)
+                                        } else {
+                                            await session.send(`${agent.name}(你)：${useSkillFn.name}技能剩余使用次数：${useSkillFn.prob}次`)
+                                        }
+                                    }
+                                }
+                                // 怪物：扣减剩余使用次数 num（-1 为无限）
+                                if (agent.type == '怪物' && useSkillFn) {
+                                    const n = useSkillFn.num ?? -1
+                                    if (n !== -1) useSkillFn.num = n - 1
+                                }
                                 agent.mp -= selectFn.mp
                                 let isNext = false
+                                let castFailed = false // 技能内部是否判定失败（需返还次数）
+                                let buffmsg = ''
                                 const fnMsg = selectFn.fn({ self: agent, goal: _selectGoal },
                                     { selfList: lifeSelfList, goalList: lifeGoalList, selfMaster: currentBattle.self, goalMaster: currentBattle.goal }, (val) => {
                                         switch (val.type) {
@@ -732,16 +736,25 @@ export const BattleData = {
                                                 break;
                                             case SkillType.释放失败:
                                                 isMy && val.err && session.send(val.err)
+                                                castFailed = true
                                             default:
                                                 break;
                                         }
                                         isNext = val.isNext
                                     })
-                                fnMsg && msgList.push(fnMsg + buffmsg)
+                                if (castFailed) {
+                                    // 技能内部判定失败：返还本局已扣的使用次数
+                                    if (agent.type == '怪物' && useSkillFn) {
+                                        const n = useSkillFn.num ?? -1
+                                        if (n !== -1) useSkillFn.num = n + 1
+                                    }
+                                    if (agent.type == '玩家' && useSkillFn && useSkillFn.prob > 0) {
+                                        useSkillFn.prob++
+                                    }
+                                } else {
+                                    fnMsg && msgList.push(fnMsg + buffmsg)
+                                }
                                 isNext && noralAtk()
-                            } else {
-                                isMy && await session.send(`MP不足，释放失败！`)
-                                noralAtk()
                             }
                         }
                     } else {
